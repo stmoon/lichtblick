@@ -11,6 +11,9 @@ import {
   MessagePipelineContext,
   useMessagePipeline,
 } from "@lichtblick/suite-base/components/MessagePipeline";
+import { useFlightInfo } from "@lichtblick/suite-base/suvlab/flightInfo";
+
+const APP_NAME = "SUV Lab Flight Log";
 
 const selectPlayerName = (ctx: MessagePipelineContext) => ctx.playerState.name;
 
@@ -19,16 +22,20 @@ const selectPlayerName = (ctx: MessagePipelineContext) => ctx.playerState.name;
  */
 export default function DocumentTitleAdapter(): React.JSX.Element {
   const playerName = useMessagePipeline(selectPlayerName);
+  const flight = useFlightInfo();
 
   useEffect(() => {
-    if (!playerName) {
-      window.document.title = "Lichtblick";
+    // The file name, not the blob URL: a browser tab shows the first thirty
+    // characters or so, and every one of ours started with the same host.
+    const name = flight?.filename ?? playerName;
+    if (!name) {
+      window.document.title = APP_NAME;
       return;
     }
     window.document.title = navigator.userAgent.includes("Mac")
-      ? playerName
-      : `${playerName} – Lichtblick`;
-  }, [playerName]);
+      ? name
+      : `${name} – ${APP_NAME}`;
+  }, [flight, playerName]);
 
   return <></>;
 }

@@ -19,6 +19,8 @@ import TextMiddleTruncate from "@lichtblick/suite-base/components/TextMiddleTrun
 import WssErrorModal from "@lichtblick/suite-base/components/WssErrorModal";
 import { useWorkspaceActions } from "@lichtblick/suite-base/context/Workspace/useWorkspaceActions";
 import { PlayerPresence } from "@lichtblick/suite-base/players/types";
+import { FlightTitle } from "@lichtblick/suite-base/suvlab/FlightTitle";
+import { useFlightInfo } from "@lichtblick/suite-base/suvlab/flightInfo";
 
 import { EndTimestamp } from "./EndTimestamp";
 
@@ -86,6 +88,9 @@ export function DataSource(): React.JSX.Element {
   const playerPresence = useMessagePipeline(selectPlayerPresence);
   const playerAlerts = useMessagePipeline(selectPlayerAlerts) ?? [];
   const seek = useMessagePipeline(selectSeek);
+  // Present when the log came from the Flight Log Manager; absent for a file
+  // someone dragged in, which still gets the plain source name below.
+  const flight = useFlightInfo();
 
   const { sidebarActions } = useWorkspaceActions();
 
@@ -109,17 +114,21 @@ export function DataSource(): React.JSX.Element {
     <>
       <WssErrorModal playerAlerts={playerAlerts} />
       <Stack direction="row" alignItems="center">
-        <div className={classes.sourceName}>
-          <div className={classes.textTruncate}>
-            <TextMiddleTruncate text={playerDisplayName ?? `<${t("unknown")}>`} />
+        {flight ? (
+          <FlightTitle info={flight} />
+        ) : (
+          <div className={classes.sourceName}>
+            <div className={classes.textTruncate}>
+              <TextMiddleTruncate text={playerDisplayName ?? `<${t("unknown")}>`} />
+            </div>
+            {isLiveConnection && (
+              <>
+                <span>/</span>
+                <EndTimestamp />
+              </>
+            )}
           </div>
-          {isLiveConnection && (
-            <>
-              <span>/</span>
-              <EndTimestamp />
-            </>
-          )}
-        </div>
+        )}
         <div className={cx(classes.adornment, { [classes.adornmentError]: error })}>
           {loading && (
             <CircularProgress
