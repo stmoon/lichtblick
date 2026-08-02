@@ -67,19 +67,35 @@ const selectPresence = (ctx: MessagePipelineContext) => ctx.playerState.presence
 
 type Props = {
   onSeek: (seekTo: Time) => void;
+  /** The window playback is confined to. Undefined means the whole log. */
+  range?: { start: Time; end: Time };
 };
 
 export default function Scrubber(props: Props): React.JSX.Element {
-  const { onSeek } = props;
+  const { onSeek, range } = props;
   const { classes, cx } = useStyles();
 
   const [hoverComponentId] = useState<string>(() => uuidv4());
 
-  const startTime = useMessagePipeline(selectStartTime);
+  const logStartTime = useMessagePipeline(selectStartTime);
   const currentTime = useMessagePipeline(selectCurrentTime);
-  const endTime = useMessagePipeline(selectEndTime);
+  const logEndTime = useMessagePipeline(selectEndTime);
   const presence = useMessagePipeline(selectPresence);
-  const ranges = useMessagePipeline(selectRanges);
+  const logRanges = useMessagePipeline(selectRanges);
+
+  // The whole bar — track, hover, marker — is expressed as a fraction of
+  // start..end, so narrowing the window is just a matter of what those two
+  // are.
+  const startTime = range?.start ?? logStartTime;
+  const endTime = range?.end ?? logEndTime;
+
+  // Loaded ranges arrive as fractions of the whole log. Left alone they would
+  // shade the wrong part of a narrowed bar, which reads as data missing where
+  // it is not.
+  const ranges = useMemo(
+    () => rescaleRanges(logRanges, logStartTime, logEndTime, startTime, endTime),
+    [logRanges, logStartTime, logEndTime, startTime, endTime],
+  );
 
   const setHoverValue = useSetHoverValue();
 
@@ -236,4 +252,33 @@ export default function Scrubber(props: Props): React.JSX.Element {
       </Stack>
     </Tooltip>
   );
+}
+
+/** Move loaded-range fractions from the log's timeline onto the window's. */
+function rescaleRanges(
+  ranges: readonly { start: number; end: number }[] | undefined,
+  logStart: Time | undefined,
+  logEnd: Time | undefined,
+  windowStart: Time | undefined,
+  windowEnd: Time | undefined,
+): { start: number; end: number }[] | undefined {
+  if (!ranges || !logStart || !logEnd || !windowStart || !windowEnd) {
+    return ranges as { start: number; end: number }[] | undefined;
+  }
+  const logSeconds = toSec(subtractTimes(logEnd, logStart));
+  const windowSeconds = toSec(subtractTimes(windowEnd, windowStart));
+  if (logSeconds <= 0 || windowSeconds <= 0) {
+    return ranges as { start: number; end: number }[];
+  }
+  const offset = toSec(subtractTimes(windowStart, logStart));
+  const move = (fraction: number) => (fraction * logSeconds - offset) / windowSeconds;
+  const out: { start: number; end: number }[] = [];
+  for (const range of ranges) {
+    const start = Math.max(0, move(range.start));
+    const end = Math.min(1, move(range.end));
+    if (end > start) {
+      out.push({ start, end });
+    }
+  }
+  return out;
 }

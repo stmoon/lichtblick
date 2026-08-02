@@ -5,7 +5,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Close20Regular } from "@fluentui/react-icons";
+import { Dismiss20Regular } from "@fluentui/react-icons";
 import {
   Button,
   Dialog,
@@ -19,7 +19,7 @@ import {
 import { useMemo, useState } from "react";
 import { makeStyles } from "tss-react/mui";
 
-import { Time, compare, isTimeInRangeInclusive } from "@lichtblick/rostime";
+import { Time, compare } from "@lichtblick/rostime";
 import Stack from "@lichtblick/suite-base/components/Stack";
 import { useAppTimeFormat } from "@lichtblick/suite-base/hooks/useAppTimeFormat";
 import { getValidatedTimeAndMethodFromString } from "@lichtblick/suite-base/util/formatTime";
@@ -85,12 +85,20 @@ export function PlaybackRangeDialog({
   const [startText, setStartText] = useState(() => asText(range.start));
   const [endText, setEndText] = useState(() => asText(range.end));
 
+  // Clamped rather than rejected. The displayed form carries milliseconds and
+  // the log's bounds carry nanoseconds, so the start of the log written out
+  // and read back lands a few hundred microseconds before the log begins —
+  // outside a range check, and an error message on a value the dialog itself
+  // filled in. Somebody typing a time past the end means the end.
   const parse = (text: string): Time | undefined => {
-    const parsed = getValidatedTimeAndMethodFromString({ text, timezone: timeZone });
-    const time = parsed?.time;
-    // Outside the log is not a range, it is a typo. Rejecting here keeps the
-    // error next to the field that caused it.
-    return time && isTimeInRangeInclusive(time, bounds.start, bounds.end) ? time : undefined;
+    const time = getValidatedTimeAndMethodFromString({ text, timezone: timeZone })?.time;
+    if (!time) {
+      return undefined;
+    }
+    if (compare(time, bounds.start) < 0) {
+      return bounds.start;
+    }
+    return compare(time, bounds.end) > 0 ? bounds.end : time;
   };
 
   const start = parse(startText);
@@ -106,7 +114,7 @@ export function PlaybackRangeDialog({
       <DialogTitle className={classes.title}>
         Adjust playback range
         <IconButton onClick={onClose} edge="end" aria-label="Close">
-          <Close20Regular />
+          <Dismiss20Regular />
         </IconButton>
       </DialogTitle>
       <DialogContent dividers>
@@ -117,7 +125,7 @@ export function PlaybackRangeDialog({
             fullWidth
             value={startText}
             error={start == undefined}
-            helperText={start == undefined ? "로그 구간 안의 시각이어야 합니다" : " "}
+            helperText={start == undefined ? "시각을 읽을 수 없습니다" : " "}
             onChange={(event) => {
               setStartText(event.target.value);
             }}
@@ -130,7 +138,7 @@ export function PlaybackRangeDialog({
             error={end == undefined || !ordered}
             helperText={
               end == undefined
-                ? "로그 구간 안의 시각이어야 합니다"
+                ? "시각을 읽을 수 없습니다"
                 : !ordered
                   ? "시작보다 뒤여야 합니다"
                   : " "

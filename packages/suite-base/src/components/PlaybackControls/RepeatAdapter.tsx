@@ -16,7 +16,10 @@ import {
 type RepeatAdapterProps = {
   repeatEnabled: boolean;
   play: () => void;
+  pause: () => void;
   seek: (to: Time) => void;
+  /** The window playback is confined to. Undefined means the whole log. */
+  range?: { start: Time; end: Time };
 };
 
 function activeDataSelector(ctx: MessagePipelineContext) {
@@ -26,33 +29,45 @@ function activeDataSelector(ctx: MessagePipelineContext) {
 /**
  * RepeatAdapter handled looping from the start of playback when playback reaches the end
  *
+ * It also enforces the playback range: the player itself knows nothing about a
+ * narrowed window, so something has to stop it at the chosen end.
+ *
  * NOTE: Because repeat adapter receives every message pipeline frame, we isolate its logic inside
  * a separate component so it does not cause virtual DOM diffing on any children.
  */
 export function RepeatAdapter(props: RepeatAdapterProps): React.JSX.Element {
-  const { play, seek, repeatEnabled } = props;
+  const { play, pause, seek, repeatEnabled, range } = props;
 
   const activeData = useMessagePipeline(activeDataSelector);
 
   useLayoutEffect(() => {
-    if (!repeatEnabled) {
+    const currentTime = activeData?.currentTime;
+    const startTime = range?.start ?? activeData?.startTime;
+    const endTime = range?.end ?? activeData?.endTime;
+
+    if (!startTime || !currentTime || !endTime) {
       return;
     }
 
-    const currentTime = activeData?.currentTime;
-    const endTime = activeData?.endTime;
-    const startTime = activeData?.startTime;
+    // Playing past a narrowed end has to be stopped even with repeat off,
+    // otherwise the window would only be a suggestion.
+    if (compare(currentTime, endTime) < 0) {
+      return;
+    }
 
     // repeat logic could also live in messagePipeline but since it is only triggered
     // from playback controls we've implemented it here for now - if there is demand
     // to toggle repeat from elsewhere this logic can move
-    if (startTime && currentTime && endTime && compare(currentTime, endTime) >= 0) {
+    if (repeatEnabled) {
       seek(startTime);
       // if the user turns on repeat and we are at the end, we assume they want to play from start
       // even if paused
       play();
+    } else if (range && activeData?.isPlaying === true) {
+      pause();
+      seek(endTime);
     }
-  }, [activeData, play, repeatEnabled, seek]);
+  }, [activeData, pause, play, range, repeatEnabled, seek]);
 
   return <></>;
 }

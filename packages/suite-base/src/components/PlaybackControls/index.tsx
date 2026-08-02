@@ -17,6 +17,8 @@
 import {
   ArrowRepeatAll20Regular,
   ArrowRepeatAllOff20Regular,
+  Crop20Filled,
+  Crop20Regular,
   Info20Regular,
   Next20Filled,
   Next20Regular,
@@ -54,6 +56,8 @@ import {
 } from "@lichtblick/suite-base/context/Workspace/WorkspaceContext";
 import { useWorkspaceActions } from "@lichtblick/suite-base/context/Workspace/useWorkspaceActions";
 import { Player, PlayerPresence } from "@lichtblick/suite-base/players/types";
+import { PlaybackRangeDialog } from "@lichtblick/suite-base/suvlab/PlaybackRangeDialog";
+import { clampToRange, usePlaybackRange } from "@lichtblick/suite-base/suvlab/playbackRange";
 import BroadcastManager from "@lichtblick/suite-base/util/broadcast/BroadcastManager";
 
 import PlaybackTimeDisplay from "./PlaybackTimeDisplay";
@@ -76,12 +80,29 @@ type PlaybackControlsProps = Readonly<{
 export default function PlaybackControls({
   play,
   pause,
-  seek,
+  seek: rawSeek,
   playUntil,
   isPlaying,
-  getTimeInfo,
+  getTimeInfo: rawGetTimeInfo,
 }: PlaybackControlsProps): React.JSX.Element {
   const presence = useMessagePipeline(selectPresence);
+  const { range, bounds, setRange, reset: resetRange } = usePlaybackRange();
+  const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
+
+  // Everything downstream — the buttons, the arrow keys, the scrubber — goes
+  // through these two, so the window is enforced in one place rather than at
+  // each call site.
+  const seek = useCallback(
+    (to: Time) => {
+      rawSeek(clampToRange(to, range));
+    },
+    [range, rawSeek],
+  );
+
+  const getTimeInfo = useCallback(() => {
+    const info = rawGetTimeInfo();
+    return range ? { ...info, startTime: range.start, endTime: range.end } : info;
+  }, [range, rawGetTimeInfo]);
 
   const { classes, cx } = useStyles();
   const repeat = useWorkspaceStore(selectPlaybackRepeat);
@@ -149,11 +170,17 @@ export default function PlaybackControls({
 
   return (
     <>
-      <RepeatAdapter play={play} seek={seek} repeatEnabled={repeat} />
+      <RepeatAdapter
+        play={play}
+        pause={pause}
+        seek={rawSeek}
+        repeatEnabled={repeat}
+        range={range?.adjusted === true ? range : undefined}
+      />
       <KeyListener global keyDownHandlers={keyDownHandlers} />
       <div className={classes.root}>
         <div className={classes.scrubberWrapper}>
-          <Scrubber onSeek={seek} />
+          <Scrubber onSeek={seek} range={range?.adjusted === true ? range : undefined} />
         </div>
         <Stack direction="row" alignItems="center" flex={1} gap={1}>
           <Stack direction="row" alignItems="center" flex={1} gap={0.5}>
@@ -189,6 +216,19 @@ export default function PlaybackControls({
                 icon={<Info20Regular />}
               />
             </Tooltip>
+            <HoverableIconButton
+              disabled={disableControls || bounds == undefined}
+              size="small"
+              title="Adjust playback range"
+              color={range?.adjusted === true ? "primary" : "inherit"}
+              icon={range?.adjusted === true ? <Crop20Filled /> : <Crop20Regular />}
+              activeIcon={<Crop20Filled />}
+              onClick={() => {
+                pause();
+                setRangeDialogOpen(true);
+              }}
+              data-testid="playback-range-button"
+            />
             <PlaybackTimeDisplay onSeek={seek} onPause={pause} />
           </Stack>
           <Stack direction="row" alignItems="center" gap={1}>
@@ -238,6 +278,18 @@ export default function PlaybackControls({
         </Stack>
         {createEventDialogOpen && eventsSupported && (
           <CreateEventDialog onClose={toggleCreateEventDialog} />
+        )}
+        {rangeDialogOpen && range && bounds && (
+          <PlaybackRangeDialog
+            open
+            onClose={() => {
+              setRangeDialogOpen(false);
+            }}
+            range={range}
+            bounds={bounds}
+            onApply={setRange}
+            onReset={resetRange}
+          />
         )}
       </div>
     </>
