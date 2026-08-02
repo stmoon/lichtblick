@@ -31,6 +31,8 @@ import {
 import { PlayerPresence } from "@lichtblick/suite-base/players/types";
 import BroadcastManager from "@lichtblick/suite-base/util/broadcast/BroadcastManager";
 
+import { RangeBrackets } from "@lichtblick/suite-base/suvlab/RangeBrackets";
+
 import { EventsOverlay } from "./EventsOverlay";
 import PlaybackBarHoverTicks from "./PlaybackBarHoverTicks";
 import { PlaybackControlsTooltipContent } from "./PlaybackControlsTooltipContent";
@@ -67,35 +69,23 @@ const selectPresence = (ctx: MessagePipelineContext) => ctx.playerState.presence
 
 type Props = {
   onSeek: (seekTo: Time) => void;
-  /** The window playback is confined to. Undefined means the whole log. */
+  /** The loop window, drawn as brackets over the bar. The bar itself always
+   *  spans the whole log, so the window can be seen in proportion to it. */
   range?: { start: Time; end: Time };
+  onRangeChange?: (start: Time, end: Time) => void;
 };
 
 export default function Scrubber(props: Props): React.JSX.Element {
-  const { onSeek, range } = props;
+  const { onSeek, range, onRangeChange } = props;
   const { classes, cx } = useStyles();
 
   const [hoverComponentId] = useState<string>(() => uuidv4());
 
-  const logStartTime = useMessagePipeline(selectStartTime);
+  const startTime = useMessagePipeline(selectStartTime);
   const currentTime = useMessagePipeline(selectCurrentTime);
-  const logEndTime = useMessagePipeline(selectEndTime);
+  const endTime = useMessagePipeline(selectEndTime);
   const presence = useMessagePipeline(selectPresence);
-  const logRanges = useMessagePipeline(selectRanges);
-
-  // The whole bar — track, hover, marker — is expressed as a fraction of
-  // start..end, so narrowing the window is just a matter of what those two
-  // are.
-  const startTime = range?.start ?? logStartTime;
-  const endTime = range?.end ?? logEndTime;
-
-  // Loaded ranges arrive as fractions of the whole log. Left alone they would
-  // shade the wrong part of a narrowed bar, which reads as data missing where
-  // it is not.
-  const ranges = useMemo(
-    () => rescaleRanges(logRanges, logStartTime, logEndTime, startTime, endTime),
-    [logRanges, logStartTime, logEndTime, startTime, endTime],
-  );
+  const ranges = useMessagePipeline(selectRanges);
 
   const setHoverValue = useSetHoverValue();
 
@@ -247,6 +237,18 @@ export default function Scrubber(props: Props): React.JSX.Element {
             renderSlider={renderSlider}
           />
         </Stack>
+        {range && startTime && endTime && onRangeChange && (
+          <RangeBrackets
+            start={toFraction(range.start, startTime, endTime)}
+            end={toFraction(range.end, startTime, endTime)}
+            onChange={(from, to) => {
+              onRangeChange(
+                atFraction(from, startTime, endTime),
+                atFraction(to, startTime, endTime),
+              );
+            }}
+          />
+        )}
         <EventsOverlay />
         <PlaybackBarHoverTicks componentId={hoverComponentId} />
       </Stack>
@@ -254,31 +256,11 @@ export default function Scrubber(props: Props): React.JSX.Element {
   );
 }
 
-/** Move loaded-range fractions from the log's timeline onto the window's. */
-function rescaleRanges(
-  ranges: readonly { start: number; end: number }[] | undefined,
-  logStart: Time | undefined,
-  logEnd: Time | undefined,
-  windowStart: Time | undefined,
-  windowEnd: Time | undefined,
-): { start: number; end: number }[] | undefined {
-  if (!ranges || !logStart || !logEnd || !windowStart || !windowEnd) {
-    return ranges as { start: number; end: number }[] | undefined;
-  }
-  const logSeconds = toSec(subtractTimes(logEnd, logStart));
-  const windowSeconds = toSec(subtractTimes(windowEnd, windowStart));
-  if (logSeconds <= 0 || windowSeconds <= 0) {
-    return ranges as { start: number; end: number }[];
-  }
-  const offset = toSec(subtractTimes(windowStart, logStart));
-  const move = (fraction: number) => (fraction * logSeconds - offset) / windowSeconds;
-  const out: { start: number; end: number }[] = [];
-  for (const range of ranges) {
-    const start = Math.max(0, move(range.start));
-    const end = Math.min(1, move(range.end));
-    if (end > start) {
-      out.push({ start, end });
-    }
-  }
-  return out;
+function toFraction(time: Time, start: Time, end: Time): number {
+  const span = toSec(subtractTimes(end, start));
+  return span > 0 ? toSec(subtractTimes(time, start)) / span : 0;
+}
+
+function atFraction(fraction: number, start: Time, end: Time): Time {
+  return addTimes(start, fromSec(fraction * toSec(subtractTimes(end, start))));
 }

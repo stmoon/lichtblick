@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Time, compare, isTimeInRangeInclusive, subtract } from "@lichtblick/rostime";
+import { Time, compare, subtract, toSec } from "@lichtblick/rostime";
 import {
   MessagePipelineContext,
   useMessagePipeline,
@@ -91,21 +91,14 @@ export function usePlaybackRange(): {
   );
 }
 
-/** Keep a seek target inside the range. */
-export function clampToRange(time: Time, range: PlaybackRange | undefined): Time {
-  if (!range || isTimeInRangeInclusive(time, range.start, range.end)) {
-    return time;
-  }
-  return compare(time, range.start) < 0 ? range.start : range.end;
-}
-
-/** How much shorter the window is than the log, as a Time. */
-export function rangeShortfall(
-  range: PlaybackRange | undefined,
+/** How much the window changes the log's length, in seconds. Negative once it
+ *  has been narrowed, which is the only direction it can go. */
+export function rangeDelta(
+  range: { start: Time; end: Time } | undefined,
   bounds: { start: Time; end: Time } | undefined,
-): Time {
+): number {
   if (!range || !bounds) {
-    return { sec: 0, nsec: 0 };
+    return 0;
   }
-  return subtract(subtract(bounds.end, bounds.start), subtract(range.end, range.start));
+  return toSec(subtract(range.end, range.start)) - toSec(subtract(bounds.end, bounds.start));
 }

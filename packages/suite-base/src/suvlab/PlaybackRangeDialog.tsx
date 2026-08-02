@@ -5,7 +5,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Dismiss20Regular } from "@fluentui/react-icons";
+import { ArrowUndo16Regular, Dismiss20Regular } from "@fluentui/react-icons";
 import {
   Button,
   Dialog,
@@ -24,7 +24,7 @@ import Stack from "@lichtblick/suite-base/components/Stack";
 import { useAppTimeFormat } from "@lichtblick/suite-base/hooks/useAppTimeFormat";
 import { getValidatedTimeAndMethodFromString } from "@lichtblick/suite-base/util/formatTime";
 
-import { PlaybackRange, rangeShortfall } from "./playbackRange";
+import { PlaybackRange, rangeDelta } from "./playbackRange";
 
 const useStyles = makeStyles()((theme) => ({
   title: {
@@ -105,9 +105,7 @@ export function PlaybackRangeDialog({
   const end = parse(endText);
   const ordered = start != undefined && end != undefined && compare(start, end) < 0;
 
-  const shortfall = ordered
-    ? rangeShortfall({ start: start!, end: end!, adjusted: true }, bounds)
-    : rangeShortfall(range, bounds);
+  const delta = ordered ? rangeDelta({ start: start!, end: end! }, bounds) : rangeDelta(range, bounds);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -120,7 +118,15 @@ export function PlaybackRangeDialog({
       <DialogContent dividers>
         <div className={classes.fields}>
           <TextField
-            label="Range start"
+            label={
+              <FieldLabel
+                text="Range start"
+                show={startText !== asText(bounds.start)}
+                onReset={() => {
+                  setStartText(asText(bounds.start));
+                }}
+              />
+            }
             variant="filled"
             fullWidth
             value={startText}
@@ -131,7 +137,15 @@ export function PlaybackRangeDialog({
             }}
           />
           <TextField
-            label="Range end"
+            label={
+              <FieldLabel
+                text="Range end"
+                show={endText !== asText(bounds.end)}
+                onReset={() => {
+                  setEndText(asText(bounds.end));
+                }}
+              />
+            }
             variant="filled"
             fullWidth
             value={endText}
@@ -151,7 +165,7 @@ export function PlaybackRangeDialog({
       </DialogContent>
       <DialogActions className={classes.actions}>
         <Typography variant="body2" color="text.secondary" className={classes.shortfall}>
-          Duration adjustment: {formatShortfall(shortfall)}
+          Duration adjustment: {formatDelta(delta)}
         </Typography>
         <Stack direction="row" gap={1}>
           {range.adjusted && (
@@ -185,13 +199,49 @@ export function PlaybackRangeDialog({
   );
 }
 
-function formatShortfall(time: Time): string {
-  const total = Math.max(0, time.sec);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  const millis = Math.round(Math.max(0, time.nsec) / 1e6);
-  return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(
-    millis,
-  ).padStart(3, "0")}`;
+/** Signed, because the number answers "how much shorter", and an unsigned
+ *  1:30 beside a window you just narrowed reads as if you added time. */
+function formatDelta(seconds: number): string {
+  const sign = seconds < 0 ? "-" : "";
+  const total = Math.abs(seconds);
+  const whole = Math.floor(total);
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const millis = Math.round((total - whole) * 1000);
+  return `${sign}${hours}:${String(minutes).padStart(2, "0")}:${String(whole % 60).padStart(
+    2,
+    "0",
+  )}.${String(millis).padStart(3, "0")}`;
+}
+
+/** The label carries its own undo, so a field can go back to the log's own
+ *  bound without clearing the other one. */
+function FieldLabel({
+  text,
+  show,
+  onReset,
+}: {
+  text: string;
+  show: boolean;
+  onReset: () => void;
+}): React.JSX.Element {
+  return (
+    <Stack direction="row" alignItems="center" gap={0.5}>
+      {text}
+      {show && (
+        <IconButton
+          size="small"
+          aria-label={`Reset ${text}`}
+          onMouseDown={(event) => {
+            // The label sits on the input; without this the click focuses the
+            // field and the reset never fires.
+            event.preventDefault();
+          }}
+          onClick={onReset}
+        >
+          <ArrowUndo16Regular />
+        </IconButton>
+      )}
+    </Stack>
+  );
 }
