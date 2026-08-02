@@ -8,6 +8,7 @@
 import { Tooltip } from "@mui/material";
 import { makeStyles } from "tss-react/mui";
 
+import { LayoutPicker } from "./LayoutPicker";
 import { FlightInfo, formatDuration, formatSize } from "./flightInfo";
 
 const useStyles = makeStyles()((theme) => ({
@@ -59,7 +60,6 @@ export function FlightTitle({ info }: { info: FlightInfo }): React.JSX.Element {
     info.droneId,
     formatDuration(info.durationS),
     formatSize(info.sizeBytes),
-    info.layoutName,
   ].filter((fact): fact is string => Boolean(fact));
 
   return (
@@ -73,6 +73,12 @@ export function FlightTitle({ info }: { info: FlightInfo }): React.JSX.Element {
               {fact}
             </span>
           ))}
+          {/* Last, and a control rather than a fact: it is the one thing here
+              you can change. */}
+          <span>
+            <span className={classes.separator}>{"· "}</span>
+            <LayoutPicker current={info.layoutName} />
+          </span>
         </span>
       </div>
     </Tooltip>

@@ -5,7 +5,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   MessagePipelineContext,
@@ -100,6 +100,12 @@ export async function fetchFlightInfo(api: string, id: string): Promise<FlightIn
 
 const selectPlayerName = (ctx: MessagePipelineContext) => ctx.playerState.name;
 
+/** Where the log came from, when it came from an archive at all. */
+export function useArchive(): string | undefined {
+  const playerName = useMessagePipeline(selectPlayerName);
+  return useMemo(() => flightRef(playerName)?.api, [playerName]);
+}
+
 export function useFlightInfo(): FlightInfo | undefined {
   const playerName = useMessagePipeline(selectPlayerName);
   const [info, setInfo] = useState<FlightInfo | undefined>();
@@ -122,6 +128,42 @@ export function useFlightInfo(): FlightInfo | undefined {
   }, [playerName]);
 
   return info;
+}
+
+export type LayoutPreset = { key: string; name: string; url: string };
+
+// The presets belong to the archive, not to a flight, so one fetch per origin
+// serves every log opened from it in this session.
+const layoutCache = new Map<string, Promise<LayoutPreset[]>>();
+
+/** The archive's layout presets, for the app bar's picker. */
+export function useLayoutPresets(api: string | undefined): LayoutPreset[] {
+  const [presets, setPresets] = useState<LayoutPreset[]>([]);
+
+  useEffect(() => {
+    if (!api) {
+      setPresets([]);
+      return;
+    }
+    let pending = layoutCache.get(api);
+    if (!pending) {
+      pending = fetch(`${api}/api/bootstrap/layouts`)
+        .then(async (response) => (response.ok ? ((await response.json()) as LayoutPreset[]) : []))
+        .catch(() => []);
+      layoutCache.set(api, pending);
+    }
+    let live = true;
+    void pending.then((found) => {
+      if (live) {
+        setPresets(found);
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [api]);
+
+  return presets;
 }
 
 /** Flight length as m:ss, the way the flight table writes it. */
