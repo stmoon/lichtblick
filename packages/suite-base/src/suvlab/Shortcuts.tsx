@@ -16,6 +16,7 @@ import {
 } from "@lichtblick/suite-base/context/Workspace/WorkspaceContext";
 import { useWorkspaceActions } from "@lichtblick/suite-base/context/Workspace/useWorkspaceActions";
 
+import { useShortcutsDialog } from "./ShortcutsDialogContext";
 import { isPlainKey, usePanelOrder } from "./shortcuts";
 
 /** Which tab each letter opens. The initial of the tab's own name, so there is
@@ -54,6 +55,7 @@ export function Shortcuts(): React.JSX.Element {
   const { sidebarActions } = useWorkspaceActions();
   const { setSelectedPanelIds } = useSelectedPanels();
   const panelOrder = usePanelOrder();
+  const shortcutsDialog = useShortcutsDialog();
 
   const handlers = useMemo(() => {
     const out: Record<string, (event: KeyboardEvent) => void | boolean> = {};
@@ -69,6 +71,16 @@ export function Shortcuts(): React.JSX.Element {
         return true;
       };
     }
+
+    // Shift is allowed through isPlainKey, and "?" is what Shift+/ reports, so
+    // this is a separate entry rather than a branch inside "/".
+    out["?"] = (event) => {
+      if (!isPlainKey(event) || !shortcutsDialog) {
+        return false;
+      }
+      shortcutsDialog.setOpen(true);
+      return true;
+    };
 
     out["/"] = (event) => {
       if (!isPlainKey(event) || !leftOpen) {
@@ -98,7 +110,7 @@ export function Shortcuts(): React.JSX.Element {
     }
 
     return out;
-  }, [leftOpen, panelOrder, setSelectedPanelIds, sidebarActions.left]);
+  }, [leftOpen, panelOrder, setSelectedPanelIds, shortcutsDialog, sidebarActions.left]);
 
   return <KeyListener global keyDownHandlers={handlers} />;
 }

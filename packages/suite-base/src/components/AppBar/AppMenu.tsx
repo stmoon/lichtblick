@@ -21,6 +21,8 @@ import { useWorkspaceActions } from "@lichtblick/suite-base/context/Workspace/us
 import { useLayoutTransfer } from "@lichtblick/suite-base/hooks/useLayoutTransfer";
 import { formatKeyboardShortcut } from "@lichtblick/suite-base/util/formatKeyboardShortcut";
 
+import { useShortcutsDialog } from "@lichtblick/suite-base/suvlab/ShortcutsDialogContext";
+
 import { NestedMenuItem } from "./NestedMenuItem";
 import { AppBarMenuItem, AppMenuProps } from "./types";
 
@@ -204,15 +206,23 @@ export function AppMenu(props: AppMenuProps): React.JSX.Element {
     handleNestedMenuClose();
   }, [handleNestedMenuClose]);
 
+  const shortcutsDialog = useShortcutsDialog();
+  const onShortcutsClick = useCallback(() => {
+    shortcutsDialog?.setOpen(true);
+    handleNestedMenuClose();
+  }, [handleNestedMenuClose, shortcutsDialog]);
+
   const helpItems = useMemo<AppBarMenuItem[]>(
     () => [
+      { type: "item", key: "shortcuts", label: "단축키", onClick: onShortcutsClick },
+      { type: "divider" },
       { type: "item", key: "about", label: t("about"), onClick: onAboutClick },
       { type: "divider" },
       { type: "item", key: "docs", label: t("documentation"), onClick: onDocsClick },
       { type: "divider" },
       { type: "item", key: "demo", label: t("exploreSampleData"), onClick: onDemoClick },
     ],
-    [onAboutClick, onDemoClick, onDocsClick, t],
+    [onAboutClick, onDemoClick, onDocsClick, onShortcutsClick, t],
   );
 
   return (
