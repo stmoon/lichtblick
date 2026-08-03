@@ -25,6 +25,12 @@ export type PanelInfo = {
   hasCustomToolbar?: boolean;
 
   /**
+   * Keep the panel out of the "add panel" list while still resolving it by
+   * type, so a layout saved with one open still renders.
+   */
+  hidden?: boolean;
+
+  /**
    * The panel module is a function to load the panel.
    * This is to support our lazy built-in panels
    */

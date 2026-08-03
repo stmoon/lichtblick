@@ -101,6 +101,9 @@ export default function script(event: Input<"/input/topic">): Output {
 type Props = {
   config: Config;
   saveConfig: SaveConfig<Config>;
+  /** False when hosted outside the panel layout — the right sidebar, which
+   *  draws its own header and has no settings tree to push into. */
+  panelChrome?: boolean;
 };
 
 const useStyles = makeStyles()((theme) => ({
@@ -187,11 +190,10 @@ const selectUserScripts = (state: LayoutState) =>
 
 const selectState = (store: UserScriptStore) => store.state;
 
-function UserScriptEditor(props: Props) {
-  const { config, saveConfig } = props;
+export function UserScriptEditor(props: Props) {
+  const { config, saveConfig, panelChrome = true } = props;
   const { classes, theme } = useStyles();
   const { autoFormatOnSave = false, selectedNodeId, editorForStorybook } = config;
-  const updatePanelSettingsTree = usePanelSettingsTreeUpdate();
 
   const userScripts = useCurrentLayoutSelector(selectUserScripts);
   const { scriptStates: userScriptStates, rosLib, typesLib } = useUserScriptState(selectState);
@@ -224,27 +226,6 @@ function UserScriptEditor(props: Props) {
   });
 
   const prefersDarkMode = theme.palette.mode === "dark";
-
-  const actionHandler = useCallback(
-    (action: SettingsTreeAction) => {
-      if (action.action !== "update") {
-        return;
-      }
-
-      const { input, value, path } = action.payload;
-      if (input === "boolean" && path[1] === "autoFormatOnSave") {
-        saveConfig({ autoFormatOnSave: value });
-      }
-    },
-    [saveConfig],
-  );
-
-  useEffect(() => {
-    updatePanelSettingsTree({
-      actionHandler,
-      nodes: buildSettingsTree(config),
-    });
-  }, [actionHandler, config, updatePanelSettingsTree]);
 
   useLayoutEffect(() => {
     if (selectedScript) {
@@ -359,8 +340,12 @@ function UserScriptEditor(props: Props) {
 
   return (
     <Stack fullHeight>
-      <PanelToolbar />
-      <Divider />
+      {panelChrome && (
+        <>
+          <PanelToolbar />
+          <Divider />
+        </>
+      )}
       <Stack direction="row" fullHeight overflow="hidden">
         <Sidebar
           selectScript={(scriptId) => {
@@ -463,12 +448,43 @@ function UserScriptEditor(props: Props) {
   );
 }
 
-const defaultConfig: Config = {
+export const defaultConfig: Config = {
   selectedNodeId: undefined,
   autoFormatOnSave: true,
 };
+
+/** The editor as a panel: the same component plus the two things only a panel
+ *  has, its toolbar and a settings tree to publish. */
+function UserScriptEditorPanel(props: Props) {
+  const { config, saveConfig } = props;
+  const updatePanelSettingsTree = usePanelSettingsTreeUpdate();
+
+  const actionHandler = useCallback(
+    (action: SettingsTreeAction) => {
+      if (action.action !== "update") {
+        return;
+      }
+
+      const { input, value, path } = action.payload;
+      if (input === "boolean" && path[1] === "autoFormatOnSave") {
+        saveConfig({ autoFormatOnSave: value });
+      }
+    },
+    [saveConfig],
+  );
+
+  useEffect(() => {
+    updatePanelSettingsTree({
+      actionHandler,
+      nodes: buildSettingsTree(config),
+    });
+  }, [actionHandler, config, updatePanelSettingsTree]);
+
+  return <UserScriptEditor {...props} />;
+}
+
 export default Panel(
-  Object.assign(UserScriptEditor, {
+  Object.assign(UserScriptEditorPanel, {
     panelType: "NodePlayground",
     defaultConfig,
   }),

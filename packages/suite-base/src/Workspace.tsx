@@ -88,6 +88,7 @@ import useSeekTimeFromCLI from "@lichtblick/suite-base/hooks/useSeekTimeFromCLI"
 import { useStructureItemsStoreManager } from "@lichtblick/suite-base/panels/Plot/hooks/useStructureItemsStoreManager";
 import { PlayerPresence } from "@lichtblick/suite-base/players/types";
 import { Shortcuts } from "@lichtblick/suite-base/suvlab/Shortcuts";
+import { UserScriptsSidebar } from "@lichtblick/suite-base/suvlab/UserScriptsSidebar";
 import { ShortcutsDialog } from "@lichtblick/suite-base/suvlab/ShortcutsDialog";
 import { ShortcutsDialogProvider } from "@lichtblick/suite-base/suvlab/ShortcutsDialogContext";
 import { useLayoutFromUrl } from "@lichtblick/suite-base/suvlab/useLayoutFromUrl";
@@ -415,6 +416,16 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
         {
           title: t("workspace:variables"),
           component: VariablesList,
+        },
+      ],
+      // A script is written once and then read from for the rest of the
+      // session, so it lives in a pane that opens over the layout rather than
+      // taking a tile away from the plots.
+      [
+        "user-scripts",
+        {
+          title: "User scripts",
+          component: UserScriptsSidebar,
         },
       ],
     ]);

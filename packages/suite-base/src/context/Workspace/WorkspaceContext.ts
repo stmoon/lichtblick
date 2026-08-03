@@ -32,6 +32,7 @@ export const LeftSidebarItemKeys = ["panel-settings", "topics", "alerts", "layou
 export type LeftSidebarItemKey = (typeof LeftSidebarItemKeys)[number];
 
 export const RightSidebarItemKeys = [
+  "user-scripts",
   "events",
   "variables",
   "logs-settings",

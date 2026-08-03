@@ -68,7 +68,9 @@ export default function PanelCatalogProvider(props: PropsWithChildren): React.Re
   const visiblePanels = useMemo(() => {
     const panelList = [...allPanelsInfo.builtin];
     panelList.push(...wrappedExtensionPanels);
-    return panelList;
+    // Hidden panels stay in allPanels, and so stay resolvable by type: a
+    // layout saved with one open must still render it.
+    return panelList.filter((panel) => panel.hidden !== true);
   }, [wrappedExtensionPanels, allPanelsInfo]);
 
   const panelsByType = useMemo(() => {

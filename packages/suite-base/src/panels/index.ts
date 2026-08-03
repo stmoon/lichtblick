@@ -190,6 +190,10 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     description: t("userScriptsDescription"),
     thumbnail: userScriptEditorThumbnail,
     module: async () => await import("./UserScriptEditor"),
+    // Scripts are edited in the right sidebar now, so this is no longer
+    // offered as a tile. It stays registered so a layout saved with one open
+    // still opens.
+    hidden: true,
   },
   {
     title: t("tab"),
