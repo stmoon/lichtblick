@@ -26,6 +26,8 @@ import { PanelToolbarProps } from "@lichtblick/suite-base/components/PanelToolba
 import { useDefaultPanelTitle } from "@lichtblick/suite-base/providers/PanelStateContextProvider";
 import { PANEL_TITLE_CONFIG_KEY } from "@lichtblick/suite-base/util/layout";
 
+import { PanelNumber } from "@lichtblick/suite-base/suvlab/PanelNumber";
+
 import { PanelToolbarControls } from "./PanelToolbarControls";
 
 // Panel toolbar should be added to any panel that's part of the
@@ -93,6 +95,9 @@ export default React.memo<PanelToolbarProps>(function PanelToolbar({
       ref={rootDragRef}
       style={{ backgroundColor, cursor: rootDragRef != undefined ? "grab" : "auto" }}
     >
+      {/* Outside the children fallback below: a panel that draws its own
+          toolbar still answers to its number, so the number still shows. */}
+      <PanelNumber panelId={panelContext?.id} />
       {children ??
         (title && (
           <Typography noWrap variant="body2" color="text.secondary" flex="auto">

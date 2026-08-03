@@ -87,6 +87,7 @@ import { useHandleFiles } from "@lichtblick/suite-base/hooks/useHandleFiles";
 import useSeekTimeFromCLI from "@lichtblick/suite-base/hooks/useSeekTimeFromCLI";
 import { useStructureItemsStoreManager } from "@lichtblick/suite-base/panels/Plot/hooks/useStructureItemsStoreManager";
 import { PlayerPresence } from "@lichtblick/suite-base/players/types";
+import { Shortcuts } from "@lichtblick/suite-base/suvlab/Shortcuts";
 import { useLayoutFromUrl } from "@lichtblick/suite-base/suvlab/useLayoutFromUrl";
 import { PanelStateContextProvider } from "@lichtblick/suite-base/providers/PanelStateContextProvider";
 import WorkspaceContextProvider from "@lichtblick/suite-base/providers/WorkspaceContextProvider";
@@ -654,6 +655,7 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
       <DocumentDropListener onDrop={dropHandler} allowedExtensions={allowedDropExtensions} />
       <SyncAdapters />
       <KeyListener global keyDownHandlers={keyDownHandlers} />
+      <Shortcuts />
       <div className={classes.container} ref={containerRef} tabIndex={0}>
         {appBar}
         <Sidebars
