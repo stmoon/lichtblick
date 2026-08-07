@@ -137,10 +137,8 @@ export function TopicList(): React.JSX.Element {
               style={style}
               topicResult={treeItem.item}
               selected={selected}
-              expanded={debouncedFilterText ? undefined : expanded.has(treeItem.item.item.name)}
-              onToggle={
-                debouncedFilterText ? undefined : () => { toggleTopic(treeItem.item.item.name); }
-              }
+              expanded={expanded.has(treeItem.item.item.name)}
+              onToggle={() => { toggleTopic(treeItem.item.item.name); }}
               onClick={onClick}
               onContextMenu={(event) => {
                 handleContextMenu(event, index);

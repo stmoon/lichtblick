@@ -136,9 +136,9 @@ export function useTopicListSearch(params: UseTopicListSearchParams): TopicListI
         type: "topic",
         item: matchedTopicsByName.get(topic.name) ?? topicToFzfResult(topic),
       });
-      // An opened topic lists everything it carries. Searching still narrows
-      // it to the matches, which is what the search is for.
-      if (expanded?.has(topic.name) && !filterText) {
+      // An opened topic lists everything it carries, search or no search: you
+      // searched to find the topic, and then you want to see inside it.
+      if (expanded?.has(topic.name)) {
         for (const item of messagePathSearchItems.itemsByTopicName.get(topic.name) ?? []) {
           results.push({ type: "schema", item: messagePathToFzfResult(item) });
         }

@@ -15,6 +15,8 @@ import { DraggedMessagePath } from "@lichtblick/suite-base/components/PanelExten
 import Stack from "@lichtblick/suite-base/components/Stack";
 import { useMessagePathDrag } from "@lichtblick/suite-base/services/messagePathDragging";
 
+import { FieldValue } from "@lichtblick/suite-base/suvlab/FieldValue";
+
 import { MessagePathSearchItem } from "./getMessagePathSearchItems";
 import { useTopicListStyles } from "./useTopicListStyles";
 
@@ -89,6 +91,12 @@ export function MessagePathRow({
         <Typography variant="caption" color="text.secondary" noWrap>
           {type}
         </Typography>
+        {/* The value at the playhead, pushed to the right of the row. */}
+        {isLeaf && (
+          <Stack flex="auto" direction="row" justifyContent="flex-end" overflow="hidden">
+            <FieldValue path={fullPath} />
+          </Stack>
+        )}
       </Stack>
       <div data-testid="TopicListDragHandle" style={{ cursor }} className={classes.dragHandle}>
         <ReOrderDotsVertical16Regular />
