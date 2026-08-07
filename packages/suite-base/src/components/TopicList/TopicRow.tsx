@@ -33,12 +33,18 @@ export function TopicRow({
   topicResult,
   style,
   selected,
+  expanded,
+  onToggle,
   onClick,
   onContextMenu,
 }: {
   topicResult: FzfResultItem<Topic>;
   style: React.CSSProperties;
   selected: boolean;
+  /** Whether this topic's fields are listed below it. Undefined while a search
+   *  is running, when the list shows matches instead. */
+  expanded?: boolean;
+  onToggle?: () => void;
   onClick: React.MouseEventHandler<HTMLDivElement>;
   onContextMenu: React.MouseEventHandler<HTMLDivElement>;
 }): React.JSX.Element {
@@ -132,12 +138,28 @@ export function TopicRow({
         [classes.selected]: selected,
       })}
       style={{ ...style, cursor }}
-      onClick={onClick}
+      onClick={(event) => {
+        // Opening the topic and selecting it are both what a click means here:
+        // you clicked it to look inside, and the selection is what a drag onto
+        // a panel would carry.
+        onToggle?.();
+        onClick(event);
+      }}
       onContextMenu={onContextMenu}
       data-testid="topic-row"
     >
       {draggedItemCount > 1 && (
         <Badge color="primary" className={classes.countBadge} badgeContent={draggedItemCount} />
+      )}
+      {expanded != undefined && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          aria-hidden
+          style={{ width: 12, flex: "none", marginRight: 2, userSelect: "none" }}
+        >
+          {expanded ? "▾" : "▸"}
+        </Typography>
       )}
       {/* Extra Stack wrapper to enable growing without the  */}
       <Stack flex="auto" alignItems="flex-start" overflow="hidden">

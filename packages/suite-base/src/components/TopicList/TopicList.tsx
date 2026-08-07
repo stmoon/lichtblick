@@ -52,10 +52,24 @@ export function TopicList(): React.JSX.Element {
 
   const listRef = useRef<ListImperativeAPI>(ReactNull);
 
+  // Topics the user has opened. Cleared by nothing: reopening the same log
+  // should look the way you left it.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleTopic = useCallback((name: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (!next.delete(name)) {
+        next.add(name);
+      }
+      return next;
+    });
+  }, []);
+
   const treeItems = useTopicListSearch({
     topics,
     datatypes,
     filterText: debouncedFilterText,
+    expanded,
   });
   const { selectedIndexes, onSelect, getSelectedIndexes } = useMultiSelection(treeItems);
 
@@ -123,6 +137,10 @@ export function TopicList(): React.JSX.Element {
               style={style}
               topicResult={treeItem.item}
               selected={selected}
+              expanded={debouncedFilterText ? undefined : expanded.has(treeItem.item.item.name)}
+              onToggle={
+                debouncedFilterText ? undefined : () => { toggleTopic(treeItem.item.item.name); }
+              }
               onClick={onClick}
               onContextMenu={(event) => {
                 handleContextMenu(event, index);

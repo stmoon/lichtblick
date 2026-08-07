@@ -25,6 +25,10 @@ function topicToFzfResult(item: Topic): FzfResultItem<Topic> {
   };
 }
 
+function messagePathToFzfResult(item: MessagePathSearchItem): FzfResultItem<MessagePathSearchItem> {
+  return { item, score: 0, positions: new Set<number>(), start: 0, end: 0 };
+}
+
 export type TopicListItem =
   | { type: "topic"; item: FzfResultItem<Topic> }
   | { type: "schema"; item: FzfResultItem<MessagePathSearchItem> };
@@ -33,13 +37,16 @@ export type UseTopicListSearchParams = {
   topics: Immutable<Topic[]>;
   datatypes: Immutable<Map<string, MessageDefinition>>;
   filterText: string;
+  /** Topics the user has opened, which show all their paths rather than only
+   *  the ones a search matched. */
+  expanded?: ReadonlySet<string>;
 };
 
 /**
  * Returns a filtered list of {@link TopicListItem}s based on the given filter text.
  */
 export function useTopicListSearch(params: UseTopicListSearchParams): TopicListItem[] {
-  const { topics, datatypes, filterText } = params;
+  const { topics, datatypes, filterText, expanded } = params;
 
   const topicsAndSchemaNamesFzf = useMemo(
     () =>
@@ -129,6 +136,14 @@ export function useTopicListSearch(params: UseTopicListSearchParams): TopicListI
         type: "topic",
         item: matchedTopicsByName.get(topic.name) ?? topicToFzfResult(topic),
       });
+      // An opened topic lists everything it carries. Searching still narrows
+      // it to the matches, which is what the search is for.
+      if (expanded?.has(topic.name) && !filterText) {
+        for (const item of messagePathSearchItems.itemsByTopicName.get(topic.name) ?? []) {
+          results.push({ type: "schema", item: messagePathToFzfResult(item) });
+        }
+        continue;
+      }
       const matchedMessagePaths = messagePathResultsByTopicName[topic.name];
       if (matchedMessagePaths == undefined) {
         continue;
@@ -138,7 +153,7 @@ export function useTopicListSearch(params: UseTopicListSearchParams): TopicListI
       }
     }
     return results;
-  }, [filteredTopics, messagePathResults]);
+  }, [filteredTopics, messagePathResults, expanded, filterText, messagePathSearchItems]);
 
   return treeItems;
 }
