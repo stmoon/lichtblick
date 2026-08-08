@@ -65,7 +65,7 @@ export function useShareLayout(): void {
           continue;
         }
         const body = JSON.stringify({ name: item.name, data });
-        if (sent.current.get(item.name) === body) {
+        if (body == undefined || sent.current.get(item.name) === body) {
           continue;
         }
         sent.current.set(item.name, body);
