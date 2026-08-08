@@ -14,6 +14,21 @@ import { useLayoutTransfer } from "@lichtblick/suite-base/hooks/useLayoutTransfe
 
 const log = Logger.getLogger(__filename);
 
+/** What the archive calls this preset, or undefined if it cannot say. */
+async function presetName(layoutUrl: URL, key: string): Promise<string | undefined> {
+  try {
+    const response = await fetch(new URL("/api/bootstrap/layouts", layoutUrl.origin).href);
+    if (!response.ok) {
+      return undefined;
+    }
+    const presets = (await response.json()) as { key: string; name: string }[];
+    return presets.find((preset) => preset.key === key)?.name;
+  } catch {
+    // Falling back to the key still opens the layout, just under a plain name.
+    return undefined;
+  }
+}
+
 /** Fetch a layout preset and switch to it.
  *
  *  Lifted out of Workspace, which did this once at startup for the layoutUrl
@@ -62,7 +77,13 @@ export function useLayoutFromUrl(): (layoutUrl: string) => Promise<void> {
         const filename =
           rawFilename != undefined && rawFilename !== "" ? rawFilename : "layout.json";
         const dotIndex = filename.lastIndexOf(".");
-        const layoutName = dotIndex > 0 ? filename.slice(0, dotIndex) : filename;
+        const key = dotIndex > 0 ? filename.slice(0, dotIndex) : filename;
+        // The preset's own name, not the file it is stored under. The file is
+        // named by key — layout-598b363a.json — and using that would both show
+        // the wrong name in the picker and, because the name is what identifies
+        // a preset on the way back, stop an edit from ever reaching the one it
+        // came from.
+        const layoutName = (await presetName(parsedUrl, key)) ?? key;
 
         // Find existing layouts with the same name before saving (safe deduplication)
         const existingLayouts = await layoutManager.getLayouts();
@@ -70,7 +91,7 @@ export function useLayoutFromUrl(): (layoutUrl: string) => Promise<void> {
 
         // Delegate JSON parsing, saving, and selection to parseAndInstallLayout
         const text = await response.text();
-        const file = new File([text], filename, { type: "application/json" });
+        const file = new File([text], `${layoutName}.json`, { type: "application/json" });
         const newLayout = await parseAndInstallLayout(file, "local");
 
         // Only delete old layouts after successful save to avoid data loss

@@ -26,23 +26,23 @@ const QUIET_MS = 4000;
 
 const TOKEN_KEY = "flightlog.viewerToken";
 
-/** Offer a layout built here to the archive as a shared preset.
+/** Send a layout built or edited here to the archive as a shared preset.
  *
  *  A layout lives in this browser's IndexedDB, so one built in the viewer is
  *  invisible to everyone else until it reaches the server. Watching the layout
  *  manager means nobody has to remember to export and upload it.
  *
- *  The archive refuses to overwrite an existing preset, which is what makes
- *  sending on every change safe: a layout opened from `default` keeps that
- *  name, and replacing everyone's default with one person's experiment is not
- *  something a background request should be able to do.
+ *  A layout keeps the name of the preset it was opened from, so an edit lands
+ *  on that preset and everyone sees it. Only a signed-in viewer holds a token,
+ *  so opening a shared link changes nothing for anyone else.
  */
 export function useShareLayout(): void {
   const layoutManager = useLayoutManager();
   const playerSource = useMessagePipeline(selectPlayerName);
-  // Names already offered, so a layout still being edited is sent once rather
-  // than after every quiet spell.
-  const sent = useRef(new Set<string>());
+  // What was last sent under each name. Keyed by content, not just by name:
+  // sending once per name would make the first edit of a session stick and
+  // every one after it vanish.
+  const sent = useRef(new Map<string, string>());
 
   useEffect(() => {
     const ref = flightRef(playerSource);
@@ -64,10 +64,11 @@ export function useShareLayout(): void {
         if (!data || Object.keys(data.configById ?? {}).length === 0) {
           continue;
         }
-        if (sent.current.has(item.name)) {
+        const body = JSON.stringify({ name: item.name, data });
+        if (sent.current.get(item.name) === body) {
           continue;
         }
-        sent.current.add(item.name);
+        sent.current.set(item.name, body);
         try {
           await fetch(`${ref.api}/api/bootstrap/layouts`, {
             method: "POST",
@@ -75,7 +76,7 @@ export function useShareLayout(): void {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ name: item.name, data }),
+            body,
           });
         } catch {
           // The archive being unreachable is not this feature's problem to
