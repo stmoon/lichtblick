@@ -32,6 +32,9 @@ export function FieldValue({ path }: { path: string }): React.JSX.Element | unde
   );
 }
 
+/** How many elements of an array are worth showing on one row. */
+const SHOW = 3;
+
 /** Short enough to sit at the end of a 28px row. */
 function format(value: unknown): string {
   if (value == undefined) {
@@ -48,11 +51,19 @@ function format(value: unknown): string {
   if (typeof value === "bigint") {
     return value.toString();
   }
+  // A quaternion or a per-motor array says more by its first few values than
+  // by its length: [0.123, 0.234, 1.234, ..] tells you what the field holds,
+  // where [4] only tells you there is one.
   if (ArrayBuffer.isView(value)) {
-    return `[${(value as unknown as ArrayLike<number>).length}]`;
+    return elements(Array.from(value as unknown as ArrayLike<number>));
   }
   if (Array.isArray(value)) {
-    return `[${value.length}]`;
+    return elements(value);
   }
   return "…";
+}
+
+function elements(values: unknown[]): string {
+  const shown = values.slice(0, SHOW).map(format).join(", ");
+  return values.length > SHOW ? `[${shown}, ..]` : `[${shown}]`;
 }
