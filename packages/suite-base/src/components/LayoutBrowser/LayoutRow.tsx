@@ -32,6 +32,7 @@ import { useMountedState } from "react-use";
 
 import { useLayoutManager } from "@lichtblick/suite-base/context/LayoutManagerContext";
 import { useConfirm } from "@lichtblick/suite-base/hooks/useConfirm";
+import { useCurrentLayoutActions } from "@lichtblick/suite-base/context/CurrentLayoutContext";
 import { Layout, layoutIsShared } from "@lichtblick/suite-base/services/ILayoutStorage";
 import { useRegisterLayout } from "@lichtblick/suite-base/suvlab/shareLayout";
 
@@ -102,16 +103,25 @@ export default React.memo(function LayoutRow({
   }, [layout, onOverwrite]);
 
   // Everyone who opens a log gets the archive's presets, so putting one there
-  // is how a layout stops being only yours. The working copy is what you are
-  // looking at, so that is what goes — no need to save first.
+  // is how a layout stops being only yours. No need to save first — what you
+  // are looking at is what goes.
   const register = useRegisterLayout();
+  const { getCurrentLayoutState } = useCurrentLayoutActions();
   const registerAction = useCallback(() => {
     void (async () => {
-      const data = layout.working?.data ?? layout.baseline.data;
+      // Read the live layout, not the stored copy. Edits reach storage on a
+      // 250 ms debounce, so registering right after a change sent the state
+      // from before it — the layout looked like it had snapped back when in
+      // fact the old one had just been uploaded over the new.
+      const live = getCurrentLayoutState().selectedLayout;
+      const data =
+        live?.id === layout.id && live.data
+          ? live.data
+          : (layout.working?.data ?? layout.baseline.data);
       const result = await register(layout.name, data);
       enqueueSnackbar(result.detail, { variant: result.ok ? "success" : "error" });
     })();
-  }, [layout, register, enqueueSnackbar]);
+  }, [layout, register, getCurrentLayoutState, enqueueSnackbar]);
 
   const confirmRevert = useCallback(async () => {
     const response = await confirm({
