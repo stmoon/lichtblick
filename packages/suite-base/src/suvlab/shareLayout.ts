@@ -63,11 +63,15 @@ export function useRegisterLayout(): (name: string, data: unknown) => Promise<Re
       if (!token) {
         return { ok: false, detail: "로그인한 뒤 로그를 열어야 등록할 수 있습니다" };
       }
+      const payload = JSON.stringify({ name, data });
+      if (payload == undefined) {
+        return { ok: false, detail: "레이아웃을 읽지 못했습니다" };
+      }
       try {
         const response = await fetch(`${ref.api}/api/bootstrap/layouts`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ gz: await packed(JSON.stringify({ name, data })) }),
+          body: JSON.stringify({ gz: await packed(payload) }),
         });
         const reply = (await response.json().catch(() => undefined)) as
           | { added?: boolean; updated?: boolean; detail?: string }
