@@ -43,20 +43,22 @@ export function useShareLayout(): void {
   // sending once per name would make the first edit of a session stick and
   // every one after it vanish.
   const sent = useRef(new Map<string, string>());
+  // Read when the timer fires rather than captured when it is set. A large
+  // recording renames its player several times while it loads, and depending
+  // on that here meant every rename tore this effect down — taking the pending
+  // send with it. Edits to a small log arrived; edits to a big one never did.
+  const source = useRef(playerSource);
+  source.current = playerSource;
 
   useEffect(() => {
-    const ref = flightRef(playerSource);
-    if (!ref) {
-      return;
-    }
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      return;
-    }
-
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const offer = async () => {
+      const ref = flightRef(source.current);
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!ref || !token) {
+        return;
+      }
       const layouts = await layoutManager.getLayouts();
       for (const item of layouts) {
         const data = item.working?.data ?? item.baseline.data;
@@ -100,5 +102,5 @@ export function useShareLayout(): void {
         clearTimeout(timer);
       }
     };
-  }, [layoutManager, playerSource]);
+  }, [layoutManager]);
 }
