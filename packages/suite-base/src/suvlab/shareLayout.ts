@@ -26,6 +26,26 @@ const QUIET_MS = 4000;
 
 const TOKEN_KEY = "flightlog.viewerToken";
 
+/** Pack a payload as base64 of its gzip.
+ *
+ *  A layout carrying User Scripts is TypeScript source inside JSON, and the
+ *  campus appliance in front of the archive answers such a request with a 302
+ *  to its own page — the same interception that blocks PATCH and DELETE. The
+ *  browser reports it as "Failed to fetch", so the layout never arrives and
+ *  nothing says why. Packed, it goes through, and it is smaller besides.
+ */
+async function packed(payload: string): Promise<string> {
+  const gzip = new Blob([payload]).stream().pipeThrough(new CompressionStream("gzip"));
+  const bytes = new Uint8Array(await new Response(gzip).arrayBuffer());
+  // In chunks: String.fromCharCode with a whole layout spread into arguments
+  // overflows the stack.
+  let binary = "";
+  for (let at = 0; at < bytes.length; at += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(at, at + 8192));
+  }
+  return btoa(binary);
+}
+
 /** Send a layout built or edited here to the archive as a shared preset.
  *
  *  A layout lives in this browser's IndexedDB, so one built in the viewer is
@@ -78,7 +98,7 @@ export function useShareLayout(): void {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body,
+            body: JSON.stringify({ gz: await packed(body) }),
           });
         } catch {
           // The archive being unreachable is not this feature's problem to
