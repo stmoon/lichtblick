@@ -95,17 +95,20 @@ export function useLayoutFromUrl(): (layoutUrl: string) => Promise<void> {
           (layout) => layout.name === layoutName || layout.name === key,
         );
 
-        // Delegate JSON parsing, saving, and selection to parseAndInstallLayout
+        // The layout is in hand before anything is removed, so there is no
+        // window where a failed fetch leaves nothing behind.
         const text = await response.text();
-        const file = new File([text], `${layoutName}.json`, { type: "application/json" });
-        const newLayout = await parseAndInstallLayout(file, "local");
 
-        // Only delete old layouts after successful save to avoid data loss
-        if (newLayout) {
-          for (const layout of matchingLayouts) {
-            await layoutManager.deleteLayout({ id: layout.id });
-          }
+        // Remove the old copy first. Installing over it and deleting after
+        // left this browser's copy selected — the layout on screen stayed the
+        // one from last time no matter what the archive had been told since.
+        for (const layout of matchingLayouts) {
+          await layoutManager.deleteLayout({ id: layout.id });
         }
+
+        // Delegate JSON parsing, saving, and selection to parseAndInstallLayout
+        const file = new File([text], `${layoutName}.json`, { type: "application/json" });
+        await parseAndInstallLayout(file, "local");
       } catch (error) {
         log.error(`Could not load layout from ${safeUrlLabel}`, error);
         enqueueSnackbar("Failed to load layout from URL", { variant: "error" });
