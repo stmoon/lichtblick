@@ -10,6 +10,11 @@ import { Menu, MenuItem } from "@mui/material";
 import { useState } from "react";
 import { makeStyles } from "tss-react/mui";
 
+import {
+  LayoutState,
+  useCurrentLayoutSelector,
+} from "@lichtblick/suite-base/context/CurrentLayoutContext";
+
 import { useArchive, useLayoutPresets } from "./flightInfo";
 import { useLayoutFromUrl } from "./useLayoutFromUrl";
 
@@ -42,17 +47,24 @@ const useStyles = makeStyles()((theme) => ({
  *  changing your mind without going back to the list and opening it again.
  *  It switches the view only — which preset a flight opens with stays the
  *  archive's to remember.
+ *
+ *  The label follows the layout actually loaded, not the one the archive has
+ *  filed against the flight. A link can name a different one (`?layout=`), and
+ *  saying the filed name there would claim you are looking at something you
+ *  are not.
  */
+const selectLayoutName = (state: LayoutState) => state.selectedLayout?.name;
+
 export function LayoutPicker({ current }: { current?: string }): React.JSX.Element {
   const { classes } = useStyles();
   const api = useArchive();
   const presets = useLayoutPresets(api);
   const applyLayout = useLayoutFromUrl();
+  const loaded = useCurrentLayoutSelector(selectLayoutName);
 
   const [anchor, setAnchor] = useState<HTMLElement | undefined>();
-  const [chosen, setChosen] = useState<string | undefined>();
 
-  const label = chosen ?? current ?? "Layout";
+  const label = loaded ?? current ?? "Layout";
 
   return (
     <>
@@ -83,7 +95,6 @@ export function LayoutPicker({ current }: { current?: string }): React.JSX.Eleme
             selected={preset.name === label}
             onClick={() => {
               setAnchor(undefined);
-              setChosen(preset.name);
               void applyLayout(preset.url);
             }}
           >
