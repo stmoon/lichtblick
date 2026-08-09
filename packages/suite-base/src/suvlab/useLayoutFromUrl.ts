@@ -9,6 +9,7 @@ import { useSnackbar } from "notistack";
 import { useCallback } from "react";
 
 import Logger from "@lichtblick/log";
+import { useCurrentLayoutActions } from "@lichtblick/suite-base/context/CurrentLayoutContext";
 import { useLayoutManager } from "@lichtblick/suite-base/context/LayoutManagerContext";
 import { useLayoutTransfer } from "@lichtblick/suite-base/hooks/useLayoutTransfer";
 
@@ -38,6 +39,7 @@ async function presetName(layoutUrl: URL, key: string): Promise<string | undefin
  */
 export function useLayoutFromUrl(): (layoutUrl: string) => Promise<void> {
   const layoutManager = useLayoutManager();
+  const { setSelectedLayoutId } = useCurrentLayoutActions();
   const { parseAndInstallLayout } = useLayoutTransfer();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -106,14 +108,22 @@ export function useLayoutFromUrl(): (layoutUrl: string) => Promise<void> {
           await layoutManager.deleteLayout({ id: layout.id });
         }
 
-        // Delegate JSON parsing, saving, and selection to parseAndInstallLayout
+        // Delegate JSON parsing and saving to parseAndInstallLayout
         const file = new File([text], `${layoutName}.json`, { type: "application/json" });
-        await parseAndInstallLayout(file, "local");
+        const newLayout = await parseAndInstallLayout(file, "local");
+
+        // Select it here rather than leaving it to the install. The install
+        // fires its selection without waiting, and the layout being replaced
+        // was the selected one — so the screen kept showing the copy that had
+        // just been deleted while the new one sat in storage unused.
+        if (newLayout) {
+          setSelectedLayoutId(newLayout.id);
+        }
       } catch (error) {
         log.error(`Could not load layout from ${safeUrlLabel}`, error);
         enqueueSnackbar("Failed to load layout from URL", { variant: "error" });
       }
     },
-    [layoutManager, parseAndInstallLayout, enqueueSnackbar],
+    [layoutManager, parseAndInstallLayout, setSelectedLayoutId, enqueueSnackbar],
   );
 }
