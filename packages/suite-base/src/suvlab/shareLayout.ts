@@ -5,24 +5,16 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 
 import {
   MessagePipelineContext,
   useMessagePipeline,
 } from "@lichtblick/suite-base/components/MessagePipeline";
-import { useLayoutManager } from "@lichtblick/suite-base/context/LayoutManagerContext";
 
 import { flightRef } from "./flightInfo";
 
 const selectPlayerName = (ctx: MessagePipelineContext) => ctx.playerState.name;
-
-/** How long the layout has to sit still before it is sent.
- *
- *  Dragging a panel emits a change per frame; without this the archive would
- *  see a request for each one.
- */
-const QUIET_MS = 4000;
 
 const TOKEN_KEY = "flightlog.viewerToken";
 
@@ -46,81 +38,57 @@ async function packed(payload: string): Promise<string> {
   return btoa(binary);
 }
 
-/** Send a layout built or edited here to the archive as a shared preset.
+export type Registered = { ok: boolean; detail: string };
+
+/** Send a layout to the archive as a shared preset, when asked to.
  *
- *  A layout lives in this browser's IndexedDB, so one built in the viewer is
- *  invisible to everyone else until it reaches the server. Watching the layout
- *  manager means nobody has to remember to export and upload it.
- *
- *  A layout keeps the name of the preset it was opened from, so an edit lands
- *  on that preset and everyone sees it. Only a signed-in viewer holds a token,
- *  so opening a shared link changes nothing for anyone else.
+ *  This used to happen on its own, four seconds after any edit, and that was
+ *  worse than it sounds: the version sent was whichever the watcher happened
+ *  to see, so merely opening a log could push the layout you started from back
+ *  over the one you had just registered. Everyone shares these presets.
+ *  Deciding when to overwrite one belongs to a person, not to a timer.
  */
-export function useShareLayout(): void {
-  const layoutManager = useLayoutManager();
+export function useRegisterLayout(): (name: string, data: unknown) => Promise<Registered> {
   const playerSource = useMessagePipeline(selectPlayerName);
-  // What was last sent under each name. Keyed by content, not just by name:
-  // sending once per name would make the first edit of a session stick and
-  // every one after it vanish.
-  const sent = useRef(new Map<string, string>());
-  // Read when the timer fires rather than captured when it is set. A large
-  // recording renames its player several times while it loads, and depending
-  // on that here meant every rename tore this effect down — taking the pending
-  // send with it. Edits to a small log arrived; edits to a big one never did.
-  const source = useRef(playerSource);
-  source.current = playerSource;
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const offer = async () => {
-      const ref = flightRef(source.current);
+  return useCallback(
+    async (name: string, data: unknown): Promise<Registered> => {
+      const ref = flightRef(playerSource);
+      if (!ref) {
+        return { ok: false, detail: "로그를 연 상태에서만 등록할 수 있습니다" };
+      }
+      // Anonymous readers hold no token, so a shared link cannot rewrite what
+      // it opens.
       const token = localStorage.getItem(TOKEN_KEY);
-      if (!ref || !token) {
-        return;
+      if (!token) {
+        return { ok: false, detail: "로그인한 뒤 로그를 열어야 등록할 수 있습니다" };
       }
-      const layouts = await layoutManager.getLayouts();
-      for (const item of layouts) {
-        const data = item.working?.data ?? item.baseline.data;
-        // Nothing to share until there is at least one panel.
-        if (!data || Object.keys(data.configById ?? {}).length === 0) {
-          continue;
+      try {
+        const response = await fetch(`${ref.api}/api/bootstrap/layouts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ gz: await packed(JSON.stringify({ name, data })) }),
+        });
+        const reply = (await response.json().catch(() => undefined)) as
+          | { added?: boolean; updated?: boolean; detail?: string }
+          | undefined;
+        if (!response.ok) {
+          return { ok: false, detail: reply?.detail ?? `등록하지 못했습니다 (${response.status})` };
         }
-        const body = JSON.stringify({ name: item.name, data });
-        if (body == undefined || sent.current.get(item.name) === body) {
-          continue;
+        if (reply?.added !== true && reply?.updated !== true) {
+          return { ok: false, detail: reply?.detail ?? "등록하지 못했습니다" };
         }
-        sent.current.set(item.name, body);
-        try {
-          await fetch(`${ref.api}/api/bootstrap/layouts`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ gz: await packed(body) }),
-          });
-        } catch {
-          // The archive being unreachable is not this feature's problem to
-          // report — the layout is still here, and the next change retries.
-          sent.current.delete(item.name);
-        }
+        return {
+          ok: true,
+          detail:
+            reply.updated === true
+              ? `'${name}' 프리셋을 갱신했습니다`
+              : `'${name}' 프리셋을 추가했습니다`,
+        };
+      } catch (error) {
+        return { ok: false, detail: `등록하지 못했습니다: ${String(error)}` };
       }
-    };
-
-    const onChange = () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(() => void offer(), QUIET_MS);
-    };
-
-    layoutManager.on("change", onChange);
-    return () => {
-      layoutManager.off("change", onChange);
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [layoutManager]);
+    },
+    [playerSource],
+  );
 }

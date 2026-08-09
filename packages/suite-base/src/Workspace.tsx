@@ -88,7 +88,6 @@ import useSeekTimeFromCLI from "@lichtblick/suite-base/hooks/useSeekTimeFromCLI"
 import { useStructureItemsStoreManager } from "@lichtblick/suite-base/panels/Plot/hooks/useStructureItemsStoreManager";
 import { PlayerPresence } from "@lichtblick/suite-base/players/types";
 import { Shortcuts } from "@lichtblick/suite-base/suvlab/Shortcuts";
-import { useShareLayout } from "@lichtblick/suite-base/suvlab/shareLayout";
 import { UserScriptsSidebar } from "@lichtblick/suite-base/suvlab/UserScriptsSidebar";
 import { ShortcutsDialog } from "@lichtblick/suite-base/suvlab/ShortcutsDialog";
 import { ShortcutsDialogProvider } from "@lichtblick/suite-base/suvlab/ShortcutsDialogContext";
@@ -158,7 +157,6 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
 
   // A layout built here lives in this browser only. Offer it to the archive so
   // the rest of the lab can pick it from the preset list.
-  useShareLayout();
 
   const play = useMessagePipeline(selectPlay);
   const playUntil = useMessagePipeline(selectPlayUntil);

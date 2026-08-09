@@ -27,11 +27,13 @@ import {
   useRef,
   useState,
 } from "react";
+import { useSnackbar } from "notistack";
 import { useMountedState } from "react-use";
 
 import { useLayoutManager } from "@lichtblick/suite-base/context/LayoutManagerContext";
 import { useConfirm } from "@lichtblick/suite-base/hooks/useConfirm";
 import { Layout, layoutIsShared } from "@lichtblick/suite-base/services/ILayoutStorage";
+import { useRegisterLayout } from "@lichtblick/suite-base/suvlab/shareLayout";
 
 import { StyledListItem, StyledMenuItem } from "./LayoutRow.style";
 import { LayoutActionMenuItem } from "./types";
@@ -93,9 +95,23 @@ export default React.memo(function LayoutRow({
     };
   }, [layoutManager]);
 
+  const { enqueueSnackbar } = useSnackbar();
+
   const overwriteAction = useCallback(() => {
     onOverwrite(layout);
   }, [layout, onOverwrite]);
+
+  // Everyone who opens a log gets the archive's presets, so putting one there
+  // is how a layout stops being only yours. The working copy is what you are
+  // looking at, so that is what goes — no need to save first.
+  const register = useRegisterLayout();
+  const registerAction = useCallback(() => {
+    void (async () => {
+      const data = layout.working?.data ?? layout.baseline.data;
+      const result = await register(layout.name, data);
+      enqueueSnackbar(result.detail, { variant: result.ok ? "success" : "error" });
+    })();
+  }, [layout, register, enqueueSnackbar]);
 
   const confirmRevert = useCallback(async () => {
     const response = await confirm({
@@ -232,6 +248,14 @@ export default React.memo(function LayoutRow({
         disabled: !isOnline || multiSelection,
         secondaryText: !isOnline ? "Offline" : undefined,
       },
+    {
+      type: "item",
+      key: "register",
+      text: "Register to Log Manager",
+      onClick: registerAction,
+      disabled: multiSelection,
+      "data-testid": "register-layout",
+    },
     {
       type: "item",
       key: "export",
