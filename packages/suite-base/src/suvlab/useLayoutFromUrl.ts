@@ -85,9 +85,15 @@ export function useLayoutFromUrl(): (layoutUrl: string) => Promise<void> {
         // came from.
         const layoutName = (await presetName(parsedUrl, key)) ?? key;
 
-        // Find existing layouts with the same name before saving (safe deduplication)
+        // Find existing layouts with the same name before saving (safe deduplication).
+        // The key counts as the same layout: a browser that opened this preset
+        // before it was named properly holds one called layout-598b363a, and
+        // leaving it there means two entries for one preset, with the stale one
+        // still selectable.
         const existingLayouts = await layoutManager.getLayouts();
-        const matchingLayouts = existingLayouts.filter((layout) => layout.name === layoutName);
+        const matchingLayouts = existingLayouts.filter(
+          (layout) => layout.name === layoutName || layout.name === key,
+        );
 
         // Delegate JSON parsing, saving, and selection to parseAndInstallLayout
         const text = await response.text();
