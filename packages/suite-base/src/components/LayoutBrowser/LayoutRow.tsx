@@ -119,9 +119,16 @@ export default React.memo(function LayoutRow({
           ? live.data
           : (layout.working?.data ?? layout.baseline.data);
       const result = await register(layout.name, data);
+      // Saving too. Registering said "this is the shared version", but the
+      // edit stayed unsaved in this browser, so reopening the log took the
+      // copy from before it — the preset's timestamp moved and the screen did
+      // not, which is exactly what it looked like.
+      if (result.ok && hasModifications) {
+        onOverwrite(layout);
+      }
       enqueueSnackbar(result.detail, { variant: result.ok ? "success" : "error" });
     })();
-  }, [layout, register, getCurrentLayoutState, enqueueSnackbar]);
+  }, [layout, register, getCurrentLayoutState, hasModifications, onOverwrite, enqueueSnackbar]);
 
   const confirmRevert = useCallback(async () => {
     const response = await confirm({
