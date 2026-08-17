@@ -18,7 +18,9 @@ const log = Logger.getLogger(__filename);
 /** What the archive calls this preset, or undefined if it cannot say. */
 async function presetName(layoutUrl: URL, key: string): Promise<string | undefined> {
   try {
-    const response = await fetch(new URL("/api/bootstrap/layouts", layoutUrl.origin).href);
+    const response = await fetch(new URL("/api/bootstrap/layouts", layoutUrl.origin).href, {
+      cache: "no-store",
+    });
     if (!response.ok) {
       return undefined;
     }
@@ -67,7 +69,14 @@ export function useLayoutFromUrl(): (layoutUrl: string) => Promise<void> {
       const safeUrlLabel = `${parsedUrl.origin}${parsedUrl.pathname}`;
 
       try {
-        const response = await fetch(layoutUrl);
+        // Never from the browser's cache. A preset is rewritten in place every
+        // time somebody registers a layout, and a cached copy is how an edit
+        // appears not to stick: the panel comes up with the settings that were
+        // current an hour ago, and registering from there pushes them back over
+        // the newer ones. The archive sends no-cache now, but a copy already in
+        // the cache is still used without asking, so the header alone does not
+        // rescue a browser that has one.
+        const response = await fetch(layoutUrl, { cache: "no-store" });
         if (!response.ok) {
           log.error(`Failed to fetch layout: ${safeUrlLabel} (status ${response.status})`);
           enqueueSnackbar(`Failed to load layout (HTTP ${response.status})`, { variant: "error" });
