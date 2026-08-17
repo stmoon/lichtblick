@@ -8,13 +8,15 @@
 import { Tooltip } from "@mui/material";
 import { makeStyles } from "tss-react/mui";
 
+import { FlightStepButton } from "./FlightSteps";
 import { LayoutPicker } from "./LayoutPicker";
+import { UpdateLayout } from "./UpdateLayout";
 import { FlightInfo, formatDuration, formatSize } from "./flightInfo";
 
 const useStyles = makeStyles()((theme) => ({
   root: {
     display: "flex",
-    alignItems: "baseline",
+    alignItems: "center",
     gap: theme.spacing(1),
     minWidth: 0,
     font: "inherit",
@@ -30,7 +32,7 @@ const useStyles = makeStyles()((theme) => ({
   },
   facts: {
     display: "flex",
-    alignItems: "baseline",
+    alignItems: "center",
     gap: theme.spacing(0.75),
     opacity: 0.7,
     minWidth: 0,
@@ -65,7 +67,10 @@ export function FlightTitle({ info }: { info: FlightInfo }): React.JSX.Element {
   return (
     <Tooltip title={info.filename} placement="bottom">
       <div className={classes.root} data-testid="flight-title">
+        {/* Either side of the name, where the thing they move is. */}
+        <FlightStepButton step={info.previous} direction="previous" />
         <span className={classes.filename}>{info.filename}</span>
+        <FlightStepButton step={info.next} direction="next" />
         <span className={classes.facts}>
           {facts.map((fact, index) => (
             <span key={fact + String(index)} className={classes.numeric}>
@@ -78,6 +83,7 @@ export function FlightTitle({ info }: { info: FlightInfo }): React.JSX.Element {
           <span>
             <span className={classes.separator}>{"· "}</span>
             <LayoutPicker current={info.layoutName} />
+            <UpdateLayout />
           </span>
         </span>
       </div>

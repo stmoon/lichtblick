@@ -12,6 +12,9 @@ import {
   useMessagePipeline,
 } from "@lichtblick/suite-base/components/MessagePipeline";
 
+/** Another log in the same 시험 일지, and where its data lives. */
+export type FlightStep = { id: string; filename: string; url: string };
+
 /** What the Flight Log Manager knows about the log being viewed. */
 export type FlightInfo = {
   id: string;
@@ -26,6 +29,8 @@ export type FlightInfo = {
   layoutName?: string;
   notionPageId?: string;
   notionUrl?: string;
+  previous?: FlightStep;
+  next?: FlightStep;
 };
 
 /** The archive origin and flight id, read out of the blob URL.
@@ -61,6 +66,8 @@ type Raw = {
   layout_name?: string | null;
   notion_page_id?: string | null;
   notion_url?: string | null;
+  previous?: FlightStep | null;
+  next?: FlightStep | null;
 };
 
 function shape(raw: Raw): FlightInfo {
@@ -77,6 +84,8 @@ function shape(raw: Raw): FlightInfo {
     layoutName: raw.layout_name ?? undefined,
     notionPageId: raw.notion_page_id ?? undefined,
     notionUrl: raw.notion_url ?? undefined,
+    previous: raw.previous ?? undefined,
+    next: raw.next ?? undefined,
   };
 }
 
