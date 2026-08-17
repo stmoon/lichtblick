@@ -6,6 +6,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { Divider, Typography } from "@mui/material";
+import { getLeaves } from "react-mosaic-component";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useUnmount } from "react-use";
@@ -36,6 +37,20 @@ import { useAppConfigurationValue } from "@lichtblick/suite-base/hooks";
 import { PanelConfig } from "@lichtblick/suite-base/types/panels";
 import { TAB_PANEL_TYPE } from "@lichtblick/suite-base/util/constants";
 import { getPanelTypeFromId } from "@lichtblick/suite-base/util/layout";
+
+/** The panel last edited, remembered across mounts.
+ *
+ *  Switching the sidebar to Topics unmounts this pane, and on the way out it
+ *  clears the selection so the selection outline does not sit on a panel
+ *  nobody is editing. Coming back, the tab was empty and there was no way to
+ *  tell it which panel you had been on - you had to go and click the panel
+ *  again. Module scope rather than state because the component it belongs to
+ *  is the one being unmounted.
+ */
+let lastEdited: string | undefined;
+
+const panelIdsSelector = (state: LayoutState) =>
+  getLeaves(state.selectedLayout?.data?.layout ?? ReactNull).join("\n");
 
 const singlePanelIdSelector = (state: LayoutState) =>
   typeof state.selectedLayout?.data?.layout === "string"
@@ -69,6 +84,20 @@ export default function PanelSettings({
 
   const [enableNewTopNav = true] = useAppConfigurationValue<boolean>(AppSetting.ENABLE_NEW_TOPNAV);
 
+  // Back to the panel that was being edited before the sidebar went to another
+  // tab. Only if it is still in the layout - a remembered id from a layout that
+  // has since been closed would select nothing and show an empty pane, which is
+  // the very thing this is here to stop.
+  const panelIds = useCurrentLayoutSelector(panelIdsSelector);
+  useEffect(() => {
+    if (selectedPanelIds.length > 0 || lastEdited == undefined) {
+      return;
+    }
+    if (panelIds.split("\n").includes(lastEdited)) {
+      setSelectedPanelIds([lastEdited]);
+    }
+  }, [panelIds, selectedPanelIds, setSelectedPanelIds]);
+
   // If no panel is selected and there is only one panel in the layout, select it
   useEffect(() => {
     if (selectedPanelIds.length === 0 && singlePanelId != undefined) {
@@ -81,9 +110,11 @@ export default function PanelSettings({
     [selectedPanelIds],
   );
 
-  // Automatically deselect the panel we were editing when the settings sidebar closes
+  // Automatically deselect the panel we were editing when the settings sidebar
+  // closes, remembering it first so coming back lands on it again.
   useUnmount(() => {
     if (selectedPanelId != undefined) {
+      lastEdited = selectedPanelId;
       setSelectedPanelIds([]);
     }
   });
