@@ -13,7 +13,6 @@ import { makeStyles } from "tss-react/mui";
 
 import { useCurrentLayoutActions } from "@lichtblick/suite-base/context/CurrentLayoutContext";
 import { useLayoutManager } from "@lichtblick/suite-base/context/LayoutManagerContext";
-import { LayoutID } from "@lichtblick/suite-base/services/ILayoutManager";
 
 import { useRegisterLayout } from "./shareLayout";
 
@@ -68,7 +67,9 @@ export function UpdateLayout(): React.JSX.Element | ReactNull {
   const update = useCallback(() => {
     void (async () => {
       const live = getCurrentLayoutState().selectedLayout;
-      if (!live?.data) {
+      // A layout with no name is one this browser made and never named; the
+      // archive files presets by name, so there is nothing to register it as.
+      if (!live?.data || live.name == undefined) {
         enqueueSnackbar("먼저 레이아웃을 여십시오", { variant: "error" });
         return;
       }
@@ -79,7 +80,7 @@ export function UpdateLayout(): React.JSX.Element | ReactNull {
         // a change would send the version from a moment ago.
         const result = await register(live.name, live.data);
         if (result.ok) {
-          await layoutManager.overwriteLayout({ id: live.id as LayoutID });
+          await layoutManager.overwriteLayout({ id: live.id });
         }
         enqueueSnackbar(result.detail, { variant: result.ok ? "success" : "error" });
       } finally {
