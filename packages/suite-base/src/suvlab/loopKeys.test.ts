@@ -5,7 +5,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { marked } from "./loopKeys";
+import { marked, nextMark } from "./loopKeys";
 
 const t = (sec: number) => ({ sec, nsec: 0 });
 const BOUNDS = { start: t(0), end: t(100) };
@@ -41,5 +41,22 @@ describe("marking the loop window while watching", () => {
   it("marks against the whole log when no window has been set yet", () => {
     const out = marked("start", t(40), BOUNDS, BOUNDS);
     expect(out).toEqual({ start: t(40), end: BOUNDS.end });
+  });
+});
+
+
+describe("which end the next ctrl-click marks", () => {
+  it("starts by marking the start", () => {
+    expect(nextMark(undefined)).toBe("start");
+  });
+
+  it("then the end", () => {
+    expect(nextMark("start")).toBe("end");
+  });
+
+  it("and the click after that begins a new window", () => {
+    // Two clicks make a window; a third means you are marking another one,
+    // not extending the last.
+    expect(nextMark("end")).toBe("start");
   });
 });

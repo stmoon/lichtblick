@@ -7,16 +7,27 @@
 
 import { Time, compare } from "@lichtblick/rostime";
 
+/** Which end the next ctrl-click marks.
+ *
+ *  Two clicks make a window: the first says where it starts, the second where
+ *  it ends, and the one after that starts a new one. A single key for both ends
+ *  needs no second shortcut to remember and no decision about which end you
+ *  meant - the order you clicked in is the answer.
+ */
+export function nextMark(previous: "start" | "end" | undefined): "start" | "end" {
+  return previous === "start" ? "end" : "start";
+}
+
 /** Where the loop window ends up after marking one of its ends.
  *
- *  Marking is done while watching: you see the thing start, press one key, see
- *  it finish, press the other. So the window has to make sense after either
- *  key on its own, with the other end wherever it happens to be.
+ *  Marking is done while watching: you see the thing start, mark it, see it
+ *  finish, mark that. So the window has to make sense after either mark on its
+ *  own, with the other end wherever it happens to be.
  *
  *  Marking a start that falls after the current end opens a new window from
- *  there to the end of the log, rather than refusing the key. The alternative
- *  reads as the shortcut being broken: you pressed it, and nothing moved. The
- *  same the other way round.
+ *  there to the end of the log, rather than refusing the mark. The alternative
+ *  reads as broken: you clicked, and nothing moved. The same the other way
+ *  round.
  */
 export function marked(
   which: "start" | "end",

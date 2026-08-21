@@ -7,7 +7,7 @@
 
 import { Fade, PopperProps, Tooltip } from "@mui/material";
 import type { Instance } from "@popperjs/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLatest } from "react-use";
 import { makeStyles } from "tss-react/mui";
 import { v4 as uuidv4 } from "uuid";
@@ -32,6 +32,7 @@ import { PlayerPresence } from "@lichtblick/suite-base/players/types";
 import BroadcastManager from "@lichtblick/suite-base/util/broadcast/BroadcastManager";
 
 import { RangeBrackets } from "@lichtblick/suite-base/suvlab/RangeBrackets";
+import { marked, nextMark } from "@lichtblick/suite-base/suvlab/loopKeys";
 
 import { EventsOverlay } from "./EventsOverlay";
 import PlaybackBarHoverTicks from "./PlaybackBarHoverTicks";
@@ -72,11 +73,13 @@ type Props = {
   /** The loop window, drawn as brackets over the bar. The bar itself always
    *  spans the whole log, so the window can be seen in proportion to it. */
   range?: { start: Time; end: Time };
+  /** The log's own extent, which a mark outside the window falls back to. */
+  bounds?: { start: Time; end: Time };
   onRangeChange?: (start: Time, end: Time) => void;
 };
 
 export default function Scrubber(props: Props): React.JSX.Element {
-  const { onSeek, range, onRangeChange } = props;
+  const { onSeek, range, bounds, onRangeChange } = props;
   const { classes, cx } = useStyles();
 
   const [hoverComponentId] = useState<string>(() => uuidv4());
@@ -99,6 +102,62 @@ export default function Scrubber(props: Props): React.JSX.Element {
 
   const latestStartTime = useLatest(startTime);
   const latestEndTime = useLatest(endTime);
+
+  // Ctrl-click marks the loop window: once for where it starts, again for
+  // where it ends, and the click after that starts a new one. Dragging the
+  // brackets means aiming at a bar a few pixels tall, and the moment worth
+  // marking is one you are watching for.
+  const lastMark = useRef<"start" | "end" | undefined>(undefined);
+
+  const markAt = useCallback(
+    (event: MouseEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || !onRangeChange) {
+        return;
+      }
+      const start = latestStartTime.current;
+      const end = latestEndTime.current;
+      if (!start || !end) {
+        return;
+      }
+      // Not a seek as well: the click means "mark here", and jumping the
+      // playhead there would move what you are watching.
+      event.preventDefault();
+      event.stopPropagation();
+
+      const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const fraction = Math.min(Math.max((event.clientX - box.left) / box.width, 0), 1);
+      const at = addTimes(
+        start,
+        fromSec(fraction * toSec(subtractTimes(end, start))),
+      );
+      const which = nextMark(lastMark.current);
+      lastMark.current = which;
+      const window = range ?? { start, end };
+      const next = marked(which, at, window, bounds ?? { start, end });
+      onRangeChange(next.start, next.end);
+    },
+    [bounds, latestEndTime, latestStartTime, onRangeChange, range],
+  );
+
+  const barRef = useRef<HTMLDivElement>(ReactNull);
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) {
+      return;
+    }
+    // Captured on the way down, so the slider under it never starts a seek.
+    // pointerdown is the one that matters - that is what the slider listens on,
+    // and capturing only mouse events left the playhead jumping to the mark.
+    const kinds = ["pointerdown", "mousedown", "click"];
+    for (const kind of kinds) {
+      bar.addEventListener(kind, markAt as EventListener, true);
+    }
+    return () => {
+      for (const kind of kinds) {
+        bar.removeEventListener(kind, markAt as EventListener, true);
+      }
+    };
+  }, [markAt]);
 
   const onChange = useCallback(
     (fraction: number) => {
@@ -222,6 +281,7 @@ export default function Scrubber(props: Props): React.JSX.Element {
         alignItems="center"
         position="relative"
         style={{ height: 32 }}
+        ref={barRef}
       >
         <div className={cx(classes.track, { [classes.trackDisabled]: !startTime })} />
         <Stack position="absolute" flex="auto" fullWidth style={{ height: 6 }}>
