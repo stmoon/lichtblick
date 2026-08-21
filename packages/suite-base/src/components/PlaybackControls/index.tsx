@@ -30,7 +30,7 @@ import {
   Previous20Regular,
 } from "@fluentui/react-icons";
 import { Tooltip } from "@mui/material";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Time, compare } from "@lichtblick/rostime";
 import { CreateEventDialog } from "@lichtblick/suite-base/components/CreateEventDialog";
@@ -62,6 +62,8 @@ import BroadcastManager from "@lichtblick/suite-base/util/broadcast/BroadcastMan
 
 import PlaybackTimeDisplay from "./PlaybackTimeDisplay";
 import { RepeatAdapter } from "./RepeatAdapter";
+import { marked } from "@lichtblick/suite-base/suvlab/loopKeys";
+
 import Scrubber from "./Scrubber";
 
 const selectPresence = (ctx: MessagePipelineContext) => ctx.playerState.presence;
@@ -101,6 +103,42 @@ export default function PlaybackControls({
   const {
     playbackControlActions: { setRepeat },
   } = useWorkspaceActions();
+
+  // Marking the loop window from the keyboard. Setting it by dragging means
+  // taking your eyes off the plot and aiming at a bar a few pixels tall; the
+  // moment worth marking is one you are watching for, and these mark it where
+  // the playhead already is.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+        return;
+      }
+      const which = event.key === "[" ? "start" : event.key === "]" ? "end" : undefined;
+      if (!which) {
+        return;
+      }
+      // Not while typing: a message path or a label can contain a bracket, and
+      // stealing the key there would be worse than not having the shortcut.
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.isContentEditable === true ||
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? "")
+      ) {
+        return;
+      }
+      const { currentTime: at } = getTimeInfo();
+      if (!at || !range || !bounds) {
+        return;
+      }
+      event.preventDefault();
+      const next = marked(which, at, range, bounds);
+      setRange(next.start, next.end);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [getTimeInfo, range, bounds, setRange]);
 
   const toggleRepeat = useCallback(() => {
     setRepeat((old) => !old);
@@ -206,7 +244,7 @@ export default function PlaybackControls({
             <HoverableIconButton
               disabled={disableControls || bounds == undefined}
               size="small"
-              title="Adjust playback range"
+              title="구간 반복 설정 · Ctrl+[ 시작, Ctrl+] 끝"
               color={loop ? "primary" : "inherit"}
               icon={loop ? <Crop20Filled /> : <Crop20Regular />}
               activeIcon={<Crop20Filled />}
