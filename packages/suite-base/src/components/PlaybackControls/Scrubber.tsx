@@ -139,25 +139,34 @@ export default function Scrubber(props: Props): React.JSX.Element {
     [bounds, latestEndTime, latestStartTime, onRangeChange, range],
   );
 
+  const swallow = useCallback((event: MouseEvent) => {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, []);
+
   const barRef = useRef<HTMLDivElement>(ReactNull);
   useEffect(() => {
     const bar = barRef.current;
     if (!bar) {
       return;
     }
-    // Captured on the way down, so the slider under it never starts a seek.
-    // pointerdown is the one that matters - that is what the slider listens on,
-    // and capturing only mouse events left the playhead jumping to the mark.
-    const kinds = ["pointerdown", "mousedown", "click"];
-    for (const kind of kinds) {
-      bar.addEventListener(kind, markAt as EventListener, true);
-    }
+    // One press marks once. A single click fires pointerdown, then mousedown,
+    // then click, and marking on all three walked the window forward three
+    // times per click - so it never stopped where you put it. pointerdown is
+    // the one that marks, because it is also the one the slider listens on and
+    // the only one that has to be caught to keep the playhead still.
+    bar.addEventListener("pointerdown", markAt as EventListener, true);
+    // The rest are swallowed so nothing downstream acts on them either.
+    bar.addEventListener("mousedown", swallow as EventListener, true);
+    bar.addEventListener("click", swallow as EventListener, true);
     return () => {
-      for (const kind of kinds) {
-        bar.removeEventListener(kind, markAt as EventListener, true);
-      }
+      bar.removeEventListener("pointerdown", markAt as EventListener, true);
+      bar.removeEventListener("mousedown", swallow as EventListener, true);
+      bar.removeEventListener("click", swallow as EventListener, true);
     };
-  }, [markAt]);
+  }, [markAt, swallow]);
 
   const onChange = useCallback(
     (fraction: number) => {
