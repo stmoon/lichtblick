@@ -15,6 +15,21 @@ import { useLayoutTransfer } from "@lichtblick/suite-base/hooks/useLayoutTransfe
 
 const log = Logger.getLogger(__filename);
 
+/** Names that mean the same preset.
+ *
+ *  A preset gets renamed - 철도연_궤적시험 was made as uwb-position - and a
+ *  browser that opened it before keeps its copy under the old name. That copy
+ *  is never replaced and stays in the layout list, so picking it shows a
+ *  version of the layout from before every edit since.
+ *
+ *  Compared without the separators, because that is what the renames in this
+ *  archive change: a space becomes an underscore, or the other way round.
+ */
+export function sameName(a: string, b: string): boolean {
+  const plain = (name: string) => name.replace(/[\s_-]+/g, "").toLowerCase();
+  return plain(a) === plain(b);
+}
+
 /** What the archive calls this preset, or undefined if it cannot say. */
 async function presetName(layoutUrl: URL, key: string): Promise<string | undefined> {
   try {
@@ -96,15 +111,20 @@ export function useLayoutFromUrl(): (layoutUrl: string) => Promise<void> {
         // came from.
         const layoutName = (await presetName(parsedUrl, key)) ?? key;
 
-        // Find existing layouts with the same name before saving (safe deduplication).
-        // The key counts as the same layout: a browser that opened this preset
-        // before it was named properly holds one called layout-598b363a, and
-        // leaving it there means two entries for one preset, with the stale one
-        // still selectable.
+        // Find existing layouts with the same name before saving (safe
+        // deduplication). The key counts as the same layout: a browser that
+        // opened this preset before it was named properly holds one called
+        // layout-598b363a, and leaving it there means two entries for one
+        // preset, with the stale one still selectable.
         const existingLayouts = await layoutManager.getLayouts();
         const matchingLayouts = existingLayouts.filter(
-          (layout) => layout.name === layoutName || layout.name === key,
+          (layout) => sameName(layout.name, layoutName) || sameName(layout.name, key),
         );
+        for (const layout of matchingLayouts) {
+          if (layout.name !== layoutName) {
+            log.info(`replacing an older copy of this preset, filed as "${layout.name}"`);
+          }
+        }
 
         // The layout is in hand before anything is removed, so there is no
         // window where a failed fetch leaves nothing behind.
