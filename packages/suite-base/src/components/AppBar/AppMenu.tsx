@@ -10,6 +10,10 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useStyles } from "@lichtblick/suite-base/components/AppBar/AppMenu.style";
+import {
+  MessagePipelineContext,
+  useMessagePipeline,
+} from "@lichtblick/suite-base/components/MessagePipeline";
 import TextMiddleTruncate from "@lichtblick/suite-base/components/TextMiddleTruncate";
 import { LICHTBLICK_DOCUMENTATION_LINK } from "@lichtblick/suite-base/constants/documentation";
 import { usePlayerSelection } from "@lichtblick/suite-base/context/PlayerSelectionContext";
@@ -22,9 +26,13 @@ import { useLayoutTransfer } from "@lichtblick/suite-base/hooks/useLayoutTransfe
 import { formatKeyboardShortcut } from "@lichtblick/suite-base/util/formatKeyboardShortcut";
 
 import { useShortcutsDialog } from "@lichtblick/suite-base/suvlab/ShortcutsDialogContext";
+import { downloadSource, sourceUrl } from "@lichtblick/suite-base/suvlab/downloadSource";
+import { useFlightInfo } from "@lichtblick/suite-base/suvlab/flightInfo";
 
 import { NestedMenuItem } from "./NestedMenuItem";
 import { AppBarMenuItem, AppMenuProps } from "./types";
+
+const selectPlayerName = (ctx: MessagePipelineContext) => ctx.playerState.name;
 
 const selectLeftSidebarOpen = (store: WorkspaceContextStore) => store.sidebars.left.open;
 const selectRightSidebarOpen = (store: WorkspaceContextStore) => store.sidebars.right.open;
@@ -37,6 +45,12 @@ export function AppMenu(props: AppMenuProps): React.JSX.Element {
   const [nestedMenu, setNestedMenu] = useState<string | undefined>();
 
   const { recentSources, selectRecent } = usePlayerSelection();
+
+  // What the viewer is showing, for the download: its address and the name
+  // the archive gives it.
+  const playerName = useMessagePipeline(selectPlayerName);
+  const flight = useFlightInfo();
+  const download = sourceUrl(playerName);
 
   const leftSidebarOpen = useWorkspaceStore(selectLeftSidebarOpen);
   const rightSidebarOpen = useWorkspaceStore(selectRightSidebarOpen);
@@ -105,6 +119,20 @@ export function AppMenu(props: AppMenuProps): React.JSX.Element {
           handleNestedMenuClose();
         },
       },
+      {
+        type: "item",
+        label: t("download"),
+        key: "download",
+        // Nothing to fetch for a log opened from disk: it is already there.
+        disabled: download == undefined,
+        dataTestId: "menu-item-download",
+        onClick: () => {
+          handleNestedMenuClose();
+          if (download != undefined) {
+            downloadSource(download, flight?.filename);
+          }
+        },
+      },
       { type: "divider" },
       { type: "item", label: t("recentDataSources"), key: "recent-sources", disabled: true },
     ];
@@ -126,6 +154,8 @@ export function AppMenu(props: AppMenuProps): React.JSX.Element {
     classes.truncate,
     dialogActions.dataSource,
     dialogActions.openFile,
+    download,
+    flight?.filename,
     handleNestedMenuClose,
     recentSources,
     selectRecent,

@@ -9,6 +9,7 @@ export const appBar = {
   about: "About",
   addPanel: "Add panel",
   documentation: "Documentation",
+  download: "Download",
   exploreSampleData: "Explore sample data",
   exportLayoutToFile: "Export layout to file…",
   extensions: "Extensions",
