@@ -127,6 +127,27 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     module: async () => await import("./CallService"),
   },
   {
+    title: t("fleet3D"),
+    type: "Fleet3D",
+    description: t("fleet3DDescription"),
+    thumbnail: threeDeeRenderThumbnail,
+    module: async () => await import("./Fleet3D"),
+  },
+  {
+    title: t("vehicleStatus"),
+    type: "VehicleStatus",
+    description: t("vehicleStatusDescription"),
+    thumbnail: tableThumbnail,
+    module: async () => await import("./VehicleStatus"),
+  },
+  {
+    title: t("vehicleCommand"),
+    type: "VehicleCommand",
+    description: t("vehicleCommandDescription"),
+    thumbnail: publishThumbnail,
+    module: async () => await import("./VehicleCommand"),
+  },
+  {
     title: t("rawMessages"),
     type: "RawMessages",
     description: t("rawMessagesDescription"),

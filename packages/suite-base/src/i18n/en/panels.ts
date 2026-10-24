@@ -10,6 +10,13 @@ export const panels = {
   "3DPanelDescription": "Display markers, camera images, meshes, URDFs, and more in a 3D scene.",
   callService: "Service Call",
   callServiceDescription: "Call a service and view the service call result",
+  fleet3D: "Fleet 3D",
+  fleet3DDescription: "Every PX4 vehicle (/vehicle<sysid>) in one 3D view, with its trail",
+  vehicleStatus: "Vehicle Status",
+  vehicleStatusDescription: "Battery, position, arming and flight mode of every PX4 vehicle",
+  vehicleCommand: "Vehicle Command",
+  vehicleCommandDescription:
+    "Arm, disarm, take off, land and change the flight mode of a PX4 vehicle over MAVLink (mavros) or ROS",
   dataSourceInfo: "Data Source Info",
   dataSourceInfoDescription: "View details like topics and timestamps for the current data source.",
   gauge: "Gauge",
